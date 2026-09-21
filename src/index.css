@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+.barista-dashboard {
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.barista-dashboard-dark {
+  background-color: #1c1917 !important;
+  color: #f5f5f4 !important;
+}
+
+.barista-dashboard-dark header,
+.barista-dashboard-dark .bg-white {
+  background-color: #292524 !important;
+  border-color: #44403c !important;
+}
+
+.barista-dashboard-dark .bg-stone-50 {
+  background-color: #292524 !important;
+}
+
+.barista-dashboard-dark .border-stone-200,
+.barista-dashboard-dark .border-stone-300,
+.barista-dashboard-dark .border-stone-100 {
+  border-color: #44403c !important;
+}
+
+.barista-dashboard-dark .text-stone-900,
+.barista-dashboard-dark .text-stone-800 {
+  color: #f5f5f4 !important;
+}
+
+.barista-dashboard-dark .text-stone-700,
+.barista-dashboard-dark .text-stone-600 {
+  color: #d6d3d1 !important;
+}
+
+.barista-dashboard-dark .text-stone-500,
+.barista-dashboard-dark .text-stone-400 {
+  color: #a8a29e !important;
+}
+
+.barista-dashboard-dark input,
+.barista-dashboard-dark select {
+  background-color: #1c1917 !important;
+  border-color: #57534e !important;
+  color: #f5f5f4 !important;
+  color-scheme: dark;
+}
+
+.barista-dashboard-dark .bg-stone-900 {
+  background-color: #f5f5f4 !important;
+  color: #1c1917 !important;
+}
+
+.barista-dashboard-dark .hover\:bg-stone-50:hover {
+  background-color: #44403c !important;
+}
+
+@media (min-width: 768px) and (max-width: 1200px) {
+  .barista-dashboard {
+    font-size: 1.05rem;
+  }
+
+  .barista-dashboard button,
+  .barista-dashboard input,
+  .barista-dashboard select {
+    min-height: 44px;
+  }
+
+  .barista-dashboard section {
+    padding: 1.5rem;
+  }
+}
