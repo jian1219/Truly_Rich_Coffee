@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Coffee, Lock, Mail, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { supabase } from '../shared/supabaseClient';
 
 const AdminLogin = () => {
 
@@ -11,23 +12,30 @@ const AdminLogin = () => {
     const [isLoading, setIsLoading] = useState(false);
 
     // Handle Login Simulation
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
 
-        // Simulate network delay for a high-end feel
-        setTimeout(() => {
-        // Default mock admin credentials (change these to whatever you prefer)
-        if (email === 'admin@coffee.com' && password === 'admin123') {
-            // Save auth state (you can use localStorage or Context later)
+        if (!supabase) {
+            setError('Supabase is not configured.');
+            setIsLoading(false);
+            return;
+        }
+        const { data, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+        if (!loginError && data.user) {
+            const { data: profile, error: profileError } = await supabase.from('profiles').select('role, active').eq('id', data.user.id).single();
+            if (profileError || profile?.role !== 'admin' || !profile.active) {
+                await supabase.auth.signOut();
+                setError('This account does not have active admin access.');
+            } else {
             localStorage.setItem('isAdminAuthenticated', 'true');
             navigate('/admin/dashboard');
+            }
         } else {
-            setError('Invalid email or password. (Hint: admin@coffee.com / admin123)');
-            setIsLoading(false);
+            setError(loginError?.message || 'Invalid email or password.');
         }
-        }, 800);
+        setIsLoading(false);
     };
 
     return (

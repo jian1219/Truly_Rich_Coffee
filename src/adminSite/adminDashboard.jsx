@@ -6,6 +6,7 @@ import {
   TrendingUp, Calendar, ShoppingBag, ArrowDownRight, Tablet, Filter
 } from 'lucide-react';
 import { getDailyReports, getInventoryAdditions, getInventoryItems, getMenuItems, loadSupabaseDailyReports, loadSupabaseInventoryAdditions, loadSupabaseInventoryItems, loadSupabaseMenuItems, saveMenuItems, syncSupabaseMenuItems } from '../shared/dailyReports';
+import { createBaristaAccount, loadStaffProfiles } from '../shared/supabaseClient';
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -14,6 +15,8 @@ export default function Admin() {
   const [inventoryItems, setInventoryItems] = useState(getInventoryItems);
   const [inventoryAdditions, setInventoryAdditions] = useState(getInventoryAdditions);
   const [selectedSalesReport, setSelectedSalesReport] = useState(null);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffError, setStaffError] = useState('');
 
   useEffect(() => {
     const loadRemoteData = async () => {
@@ -71,11 +74,19 @@ export default function Admin() {
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [staffFormData, setStaffFormData] = useState({ 
     name: '', 
+    username: '',
+    email: '',
+    password: '',
     role: 'Barista', 
     shift: 'Morning', 
     status: 'Active', 
     posAccess: true 
   });
+  useEffect(() => {
+    loadStaffProfiles().then((profiles) => {
+      if (profiles.length) setStaff(profiles.map((profile) => ({ id: profile.id, name: profile.full_name, username: profile.username, email: '', role: 'Barista', shift: 'Morning', status: profile.active ? 'Active' : 'Inactive', posAccess: profile.active })));
+    }).catch((error) => console.error('Unable to load staff profiles.', error));
+  }, []);
   const submittedSales = dailyReports.map((report) => {
     const cups = (report.sales || []).reduce((total, item) => total + Number(item.cups || 0), 0);
     const total = (report.sales || []).reduce((sum, item) => sum + Number(item.cups || 0) * (products.find((product) => product.id === item.id)?.price || 0), 0);
@@ -116,17 +127,27 @@ export default function Admin() {
   };
 
   // Staff CRUD functions
-  const handleSaveStaff = (e) => {
+  const handleSaveStaff = async (e) => {
     e.preventDefault();
-    if (!staffFormData.name || !staffFormData.role) return;
+    setStaffError('');
+    if (!staffFormData.name || !staffFormData.username || !staffFormData.email || !staffFormData.password) return;
+    setStaffLoading(true);
     if (editingStaffId) {
       setStaff(prev => prev.map(st => st.id === editingStaffId ? { ...st, ...staffFormData } : st));
     } else {
-      setStaff(prev => [...prev, { id: Date.now(), ...staffFormData }]);
+      try {
+        const created = await createBaristaAccount({ fullName: staffFormData.name, username: staffFormData.username, email: staffFormData.email, password: staffFormData.password });
+        setStaff(prev => [...prev, { id: created.id, ...staffFormData, role: 'Barista', status: 'Active', posAccess: true }]);
+      } catch (error) {
+        setStaffError(error.message || 'Unable to create staff account.');
+        setStaffLoading(false);
+        return;
+      }
     }
     setIsStaffModalOpen(false);
     setEditingStaffId(null);
-    setStaffFormData({ name: '', role: 'Barista', shift: 'Morning', status: 'Active', posAccess: true });
+    setStaffFormData({ name: '', username: '', email: '', password: '', role: 'Barista', shift: 'Morning', status: 'Active', posAccess: true });
+    setStaffLoading(false);
   };
 
   // --- SALES FILTER LOGIC ---
@@ -540,7 +561,7 @@ export default function Admin() {
               <button
                 onClick={() => {
                   setEditingStaffId(null);
-                  setStaffFormData({ name: '', role: 'Barista / Cashier', shift: 'Morning', status: 'Active', posAccess: true });
+                  setStaffFormData({ name: '', username: '', email: '', password: '', role: 'Barista / Cashier', shift: 'Morning', status: 'Active', posAccess: true });
                   setIsStaffModalOpen(true);
                 }}
                 className="flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-lg shadow-amber-900/20 transition"
@@ -820,6 +841,7 @@ export default function Admin() {
             </h3>
 
             <form onSubmit={handleSaveStaff} className="space-y-4">
+              {staffError && <p className="rounded-xl border border-red-800/50 bg-red-950/40 p-3 text-xs text-red-300">{staffError}</p>}
               <div>
                 <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Full Name</label>
                 <input
@@ -831,6 +853,18 @@ export default function Admin() {
                   className="w-full px-4 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500"
                 />
               </div>
+
+              {!editingStaffId && <><div>
+                <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Username</label>
+                <input type="text" required value={staffFormData.username} onChange={(e) => setStaffFormData({ ...staffFormData, username: e.target.value })} placeholder="e.g., juan.barista" className="w-full px-4 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500" />
+              </div><div>
+                <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Login Email</label>
+                <input type="email" required value={staffFormData.email} onChange={(e) => setStaffFormData({ ...staffFormData, email: e.target.value })} placeholder="juan@example.com" className="w-full px-4 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500" />
+              </div><div>
+                <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Temporary Password</label>
+                <input type="password" minLength="8" required value={staffFormData.password} onChange={(e) => setStaffFormData({ ...staffFormData, password: e.target.value })} placeholder="At least 8 characters" className="w-full px-4 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500" />
+                <p className="mt-1 text-[11px] text-gray-500">Give this temporary password to the barista securely.</p>
+              </div></>}
 
               <div>
                 <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Role / Position</label>
@@ -895,7 +929,7 @@ export default function Admin() {
                   type="submit"
                   className="flex-1 py-3 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-xl text-sm shadow-lg shadow-amber-900/20 transition"
                 >
-                  Save Staff
+                  {staffLoading ? 'Creating account...' : 'Save Staff'}
                 </button>
               </div>
             </form>

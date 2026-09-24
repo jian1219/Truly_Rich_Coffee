@@ -8,6 +8,7 @@ import {
     ShieldCheck,
     User,
 } from 'lucide-react';
+import { supabase } from '../shared/supabaseClient';
 
 const BaristaLogin = () => {
     const navigate = useNavigate();
@@ -16,20 +17,30 @@ const BaristaLogin = () => {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleLogin = (event) => {
+    const handleLogin = async (event) => {
         event.preventDefault();
         setError('');
         setIsLoading(true);
 
-        setTimeout(() => {
-            if (username.trim().toLowerCase() === 'barista' && password === 'barista123') {
+        if (!supabase) {
+            setError('Supabase is not configured.');
+            setIsLoading(false);
+            return;
+        }
+        const { data, error: loginError } = await supabase.auth.signInWithPassword({ email: username, password });
+        if (!loginError && data.user) {
+            const { data: profile, error: profileError } = await supabase.from('profiles').select('role, active').eq('id', data.user.id).single();
+            if (profileError || profile?.role !== 'barista' || !profile.active) {
+                await supabase.auth.signOut();
+                setError('This account does not have active barista access.');
+            } else {
                 localStorage.setItem('isBaristaAuthenticated', 'true');
                 navigate('/barista/dashboard');
-            } else {
-                setError('Invalid username or password. (Hint: barista / barista123)');
-                setIsLoading(false);
             }
-        }, 800);
+        } else {
+            setError(loginError?.message || 'Invalid email or password.');
+        }
+        setIsLoading(false);
     };
 
     return (
@@ -85,7 +96,7 @@ const BaristaLogin = () => {
                     <form onSubmit={handleLogin} className="space-y-5">
                         <div>
                             <label htmlFor="barista-username" className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
-                                Username
+                                Login Email
                             </label>
                             <div className="relative">
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-gray-500">
@@ -98,7 +109,7 @@ const BaristaLogin = () => {
                                     autoComplete="username"
                                     value={username}
                                     onChange={(event) => setUsername(event.target.value)}
-                                    placeholder="barista"
+                                    placeholder="barista@example.com"
                                     className="w-full pl-11 pr-4 py-3 bg-gray-950/60 border border-gray-800 rounded-xl text-white placeholder-gray-600 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
                                 />
                             </div>
@@ -124,10 +135,7 @@ const BaristaLogin = () => {
                                 />
                             </div>
                             <p className="text-[11px] text-gray-500 mt-1.5">
-                                Default credentials for testing:{' '}
-                                <span className="text-amber-400 font-mono">barista</span>
-                                {' / '}
-                                <span className="text-amber-400 font-mono">barista123</span>
+                                Use the email and temporary password created by the admin.
                             </p>
                         </div>
 

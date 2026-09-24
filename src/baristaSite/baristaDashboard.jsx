@@ -10,6 +10,7 @@ import {
     loadSupabaseDailyReports, loadSupabaseInventoryAdditions, loadSupabaseInventoryItems, loadSupabaseMenuItems,
     syncSupabaseDailyReport, syncSupabaseInventoryAdditions, syncSupabaseInventoryItems,
 } from '../shared/dailyReports';
+import { supabase } from '../shared/supabaseClient';
 
 const today = new Date().toISOString().slice(0, 10);
 const blankExpense = { description: '', category: 'Supplies', amount: '' };
@@ -70,6 +71,23 @@ export default function BaristaDashboard() {
     const [selectedSalesDate, setSelectedSalesDate] = useState(null);
     const [selectedRecordDate, setSelectedRecordDate] = useState(null);
     const [theme, setTheme] = useState(() => localStorage.getItem('baristaTheme') || 'light');
+
+    useEffect(() => {
+        const verifyBaristaAccess = async () => {
+            if (!supabase) return;
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                navigate('/barista/login');
+                return;
+            }
+            const { data: profile } = await supabase.from('profiles').select('role, active').eq('id', user.id).single();
+            if (!profile || profile.role !== 'barista' || !profile.active) {
+                await supabase.auth.signOut();
+                navigate('/barista/login');
+            }
+        };
+        verifyBaristaAccess();
+    }, [navigate]);
 
     useEffect(() => {
         const loadRemoteData = async () => {
