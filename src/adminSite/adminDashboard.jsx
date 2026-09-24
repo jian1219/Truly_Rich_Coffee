@@ -3,11 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Package, DollarSign, Users, Receipt, 
   LogOut, Plus, Trash2, Edit2, Check, X, ShieldCheck, 
-  TrendingUp, Calendar, ShoppingBag, ArrowDownRight, Tablet, Filter, Settings, Sun, Moon
+  TrendingUp, Calendar, ShoppingBag, ArrowDownRight, Tablet, Filter, Settings, Sun, Moon, FileBarChart, Printer
 } from 'lucide-react';
 import { getDailyReports, getInventoryAdditions, getInventoryItems, getMenuItems, loadSupabaseDailyReports, loadSupabaseInventoryAdditions, loadSupabaseInventoryItems, loadSupabaseMenuItems, saveMenuItems, syncSupabaseMenuItems } from '../shared/dailyReports';
 import { createBaristaAccount, loadStaffProfiles, resetBaristaPassword, supabase } from '../shared/supabaseClient';
 import logo from '../images/logo-trc.png';
+
+function reportTotalCups(report) {
+  return (report.sales || []).reduce((total, item) => total + Number(item.cups || 0), 0);
+}
+
+function reportTotalExpenses(report) {
+  return (report.expenses || []).reduce((total, item) => total + Number(item.amount || 0), 0);
+}
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -96,6 +104,7 @@ export default function Admin() {
   const [expenseFilterType, setExpenseFilterType] = useState('all');
   const [selectedExpenseMonth, setSelectedExpenseMonth] = useState(todayStr.slice(0, 7));
   const [selectedExpenseDate, setSelectedExpenseDate] = useState(todayStr);
+  const [selectedReportMonth, setSelectedReportMonth] = useState(todayStr.slice(0, 7));
 
   // Modal states for Product CRUD
   const [isOpenModal, setIsOpenModal] = useState(false);
@@ -241,7 +250,26 @@ export default function Admin() {
   useEffect(() => {
     if (reportMonths.length && !reportMonths.includes(selectedSalesMonth)) setSelectedSalesMonth(reportMonths[0]);
     if (reportMonths.length && !reportMonths.includes(selectedExpenseMonth)) setSelectedExpenseMonth(reportMonths[0]);
-  }, [reportMonths.join(','), selectedSalesMonth, selectedExpenseMonth]);
+    if (reportMonths.length && !reportMonths.includes(selectedReportMonth)) setSelectedReportMonth(reportMonths[0]);
+  }, [reportMonths.join(','), selectedSalesMonth, selectedExpenseMonth, selectedReportMonth]);
+
+  const monthlyReports = dailyReports.filter((report) => report.date.startsWith(selectedReportMonth));
+  const monthlySales = monthlyReports.flatMap((report) => report.sales || []);
+  const monthlyExpenses = monthlyReports.flatMap((report) => report.expenses || []);
+  const monthlySalesTotal = monthlySales.reduce((total, item) => total + Number(item.cups || 0) * Number(item.price || 0), 0);
+  const monthlyExpenseTotal = monthlyExpenses.reduce((total, item) => total + Number(item.amount || 0), 0);
+  const monthlyCups = monthlySales.reduce((total, item) => total + Number(item.cups || 0), 0);
+  const monthlyNet = monthlySalesTotal - monthlyExpenseTotal;
+  const monthlyMenuTotals = monthlySales.reduce((totals, item) => {
+    const key = item.name || item.id;
+    totals[key] = (totals[key] || 0) + Number(item.cups || 0);
+    return totals;
+  }, {});
+  const monthlyCategoryTotals = monthlyExpenses.reduce((totals, item) => {
+    const key = item.category || 'Other';
+    totals[key] = (totals[key] || 0) + Number(item.amount || 0);
+    return totals;
+  }, {});
 
   const filteredSales = allSales.filter(sale => {
     if (salesFilterType === 'today') return sale.date === todayStr;
@@ -348,6 +376,16 @@ export default function Admin() {
           }`}
         >
           <Receipt className="w-4 h-4" /> Expenses
+        </button>
+        <button
+          onClick={() => setActiveTab('report')}
+          className={`flex items-center gap-2 py-4 px-5 border-b-2 font-semibold text-sm transition ${
+            activeTab === 'report'
+              ? 'border-amber-500 text-amber-400 bg-amber-500/5'
+              : 'border-transparent text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <FileBarChart className="w-4 h-4" /> Report
         </button>
         <button
           onClick={() => setActiveTab('settings')}
@@ -848,6 +886,139 @@ export default function Admin() {
               </div>
               {filteredExpenses.length === 0 ? <p className="p-8 text-center text-gray-500 text-sm">No barista expense records found matching this timeframe filter.</p> : <div className="divide-y divide-gray-800/60">{expenseGroups.map((expenseDate) => { const dayExpenses = filteredExpenses.filter((expense) => expense.date === expenseDate); const dayTotal = dayExpenses.reduce((sum, expense) => sum + expense.amount, 0); return <div key={expenseDate}><button type="button" onClick={() => setSelectedExpenseDate(selectedExpenseDate === expenseDate ? null : expenseDate)} className="flex w-full items-center justify-between p-4 text-left hover:bg-gray-800/30"><div><p className="font-semibold text-white">{expenseDate}</p><p className="mt-1 text-xs text-gray-400">{dayExpenses.length} expense{dayExpenses.length === 1 ? '' : 's'} · submitted by barista</p></div><span className="font-bold text-red-400">-₱{dayTotal}</span></button>{selectedExpenseDate === expenseDate && <div className="space-y-2 bg-gray-950/70 p-4">{dayExpenses.map((expense) => <div key={expense.id} className="flex items-center justify-between rounded-lg bg-gray-900 p-3 text-sm"><div><p className="font-semibold text-white">{expense.title}</p><span className="text-xs text-gray-400">{expense.category}</span></div><span className="font-bold text-red-400">-₱{expense.amount}</span></div>)}</div>}</div>; })}</div>}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'report' && (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-white">Monthly Sales & Expense Report</h2>
+                <p className="mt-1 text-sm text-gray-400">Track the complete financial activity submitted by the barista for each month.</p>
+              </div>
+              <label className="flex items-center gap-2 rounded-xl border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-400">
+                Report month
+                <select
+                  value={selectedReportMonth}
+                  onChange={(event) => setSelectedReportMonth(event.target.value)}
+                  className="bg-transparent font-semibold text-amber-400 outline-none"
+                >
+                  {reportMonths.length === 0
+                    ? <option value={selectedReportMonth}>No reports available</option>
+                    : reportMonths.map((month) => <option key={month} value={month}>{formatMonth(month)}</option>)}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                disabled={monthlyReports.length === 0}
+                className="flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-900/20 transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Printer className="h-4 w-4" /> Create PDF / Print
+              </button>
+            </div>
+
+            {monthlyReports.length === 0 ? (
+              <div className="rounded-2xl border border-gray-800 bg-gray-900 p-10 text-center">
+                <FileBarChart className="mx-auto h-10 w-10 text-gray-500" />
+                <p className="mt-3 text-sm text-gray-400">No submitted sales or expense records for this month.</p>
+              </div>
+            ) : (
+              <div className="print-report-shell">
+                <div className="mb-6 hidden print:block">
+                  <div className="flex items-center gap-3 border-b border-gray-300 pb-4">
+                    <img src={logo} alt="Truly Rich Coffee" className="h-16 w-16 object-contain" />
+                    <div>
+                      <h1 className="text-2xl font-bold text-black">Truly Rich Coffee</h1>
+                      <p className="text-sm text-gray-600">Monthly Sales and Expense Report</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex justify-between text-sm text-black">
+                    <span>Report period: <strong>{formatMonth(selectedReportMonth)}</strong></span>
+                    <span>Generated: {new Date().toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Gross sales</p>
+                    <p className="mt-2 text-2xl font-extrabold text-emerald-400">₱{monthlySalesTotal.toFixed(2)}</p>
+                    <p className="mt-1 text-xs text-gray-500">{monthlyCups} cups sold</p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Total expenses</p>
+                    <p className="mt-2 text-2xl font-extrabold text-red-400">₱{monthlyExpenseTotal.toFixed(2)}</p>
+                    <p className="mt-1 text-xs text-gray-500">{monthlyExpenses.length} expense entries</p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Net after expenses</p>
+                    <p className={`mt-2 text-2xl font-extrabold ${monthlyNet >= 0 ? 'text-amber-400' : 'text-red-400'}`}>₱{monthlyNet.toFixed(2)}</p>
+                    <p className="mt-1 text-xs text-gray-500">Sales less recorded expenses</p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Reported days</p>
+                    <p className="mt-2 text-2xl font-extrabold text-white">{monthlyReports.length}</p>
+                    <p className="mt-1 text-xs text-gray-500">{formatMonth(selectedReportMonth)}</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
+                    <h3 className="font-bold text-white">Sales by menu item</h3>
+                    <div className="mt-4 space-y-3">
+                      {Object.entries(monthlyMenuTotals).sort(([, a], [, b]) => b - a).map(([name, cups]) => (
+                        <div key={name} className="flex items-center justify-between border-b border-gray-800/60 pb-2 text-sm">
+                          <span className="text-gray-300">{name}</span>
+                          <span className="font-semibold text-emerald-400">{cups} cups</span>
+                        </div>
+                      ))}
+                      {Object.keys(monthlyMenuTotals).length === 0 && <p className="text-sm text-gray-500">No sales were recorded.</p>}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
+                    <h3 className="font-bold text-white">Expenses by category</h3>
+                    <div className="mt-4 space-y-3">
+                      {Object.entries(monthlyCategoryTotals).sort(([, a], [, b]) => b - a).map(([category, amount]) => (
+                        <div key={category} className="flex items-center justify-between border-b border-gray-800/60 pb-2 text-sm">
+                          <span className="text-gray-300">{category}</span>
+                          <span className="font-semibold text-red-400">₱{amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                      {Object.keys(monthlyCategoryTotals).length === 0 && <p className="text-sm text-gray-500">No expenses were recorded.</p>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 shadow-xl">
+                  <div className="border-b border-gray-800 bg-gray-950/40 px-5 py-4">
+                    <h3 className="font-bold text-white">Daily report breakdown</h3>
+                    <p className="mt-1 text-xs text-gray-400">Sales, expenses, cups, and net result for every submitted day.</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[680px] text-left text-sm">
+                      <thead className="border-b border-gray-800 bg-gray-950/60 text-xs uppercase tracking-wider text-gray-400">
+                        <tr><th className="p-4">Date</th><th className="p-4 text-right">Cups</th><th className="p-4 text-right">Sales</th><th className="p-4 text-right">Expenses</th><th className="p-4 text-right">Net</th><th className="p-4">Submitted</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800/60">
+                        {monthlyReports.slice().sort((a, b) => b.date.localeCompare(a.date)).map((report) => {
+                          const salesTotal = (report.sales || []).reduce((total, item) => total + Number(item.cups || 0) * Number(item.price || 0), 0);
+                          const expenseTotal = reportTotalExpenses(report);
+                          return <tr key={report.date} className="hover:bg-gray-800/30">
+                            <td className="p-4 font-semibold text-amber-400">{report.date}</td>
+                            <td className="p-4 text-right text-gray-300">{reportTotalCups(report)}</td>
+                            <td className="p-4 text-right font-semibold text-emerald-400">₱{salesTotal.toFixed(2)}</td>
+                            <td className="p-4 text-right font-semibold text-red-400">₱{expenseTotal.toFixed(2)}</td>
+                            <td className={`p-4 text-right font-bold ${salesTotal - expenseTotal >= 0 ? 'text-white' : 'text-red-400'}`}>₱{(salesTotal - expenseTotal).toFixed(2)}</td>
+                            <td className="p-4 text-xs text-gray-400">{report.submittedAt ? new Date(report.submittedAt).toLocaleString() : '-'}</td>
+                          </tr>;
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                </>
+              </div>
+            )}
           </div>
         )}
 

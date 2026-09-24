@@ -99,6 +99,61 @@
   color: #78716c !important;
 }
 
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .print-report-shell,
+  .print-report-shell * {
+    visibility: visible !important;
+  }
+
+  .print-report-shell {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .print-report-shell .bg-gray-900,
+  .print-report-shell .bg-gray-950,
+  .print-report-shell .bg-gray-950\/40,
+  .print-report-shell .bg-gray-950\/60 {
+    background: #ffffff !important;
+  }
+
+  .print-report-shell .border-gray-800,
+  .print-report-shell .border-gray-800\/60 {
+    border-color: #d1d5db !important;
+  }
+
+  .print-report-shell .text-white,
+  .print-report-shell .text-gray-100,
+  .print-report-shell .text-gray-200,
+  .print-report-shell .text-gray-300,
+  .print-report-shell .text-gray-400,
+  .print-report-shell .text-gray-500 {
+    color: #374151 !important;
+  }
+
+  .print-report-shell .text-amber-400,
+  .print-report-shell .text-emerald-400,
+  .print-report-shell .text-red-400 {
+    color: #111827 !important;
+  }
+}
+
 .barista-dashboard {
   transition: background-color 180ms ease, color 180ms ease;
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    BarChart3, CalendarDays, CheckCircle2, FileText, LogOut,
+    BarChart3, CalendarDays, CheckCircle2, FileText, LogOut, Wallet, FileBarChart, Printer,
     Package, Plus, Receipt, Save, Sun, Moon, Trash2, X,
 } from 'lucide-react';
 import {
@@ -20,6 +20,8 @@ const tabs = [
     { id: 'expenses', label: 'Expense', icon: Receipt },
     { id: 'sales', label: 'Sales', icon: BarChart3 },
     { id: 'records', label: 'Record', icon: FileText },
+    { id: 'cashbox', label: 'Cash Box', icon: Wallet },
+    { id: 'report', label: 'Report', icon: FileBarChart },
     { id: 'ending', label: 'Ending submission', icon: CheckCircle2 },
 ];
 
@@ -35,6 +37,10 @@ function reportTotalCups(report) {
 
 function reportTotalExpenses(report) {
     return (report.expenses || []).reduce((total, item) => total + Number(item.amount || 0), 0);
+}
+
+function reportTotalSales(report) {
+    return (report.sales || []).reduce((total, item) => total + Number(item.cups || 0) * Number(item.price || 0), 0);
 }
 
 function formatMonth(month) {
@@ -65,6 +71,7 @@ export default function BaristaDashboard() {
     const [expenses, setExpenses] = useState(() => getDailyDraft(today)?.expenses || []);
     const [inventory, setInventory] = useState(() => getDailyDraft(today)?.inventory || {});
     const [inventoryUsed, setInventoryUsed] = useState(() => getDailyDraft(today)?.inventoryUsed || {});
+    const [cashbox, setCashbox] = useState(() => getDailyDraft(today)?.cashbox || { openingCash: '', countedCash: '' });
     const [inventoryItems, setInventoryItems] = useState(getInventoryItems);
     const [menuItems, setMenuItems] = useState(getMenuItems);
     const [dailyReports, setDailyReports] = useState(getDailyReports);
@@ -141,6 +148,7 @@ export default function BaristaDashboard() {
         setExpenses(draft?.expenses || []);
         setInventory(draft?.inventory || {});
         setInventoryUsed(draft?.inventoryUsed || {});
+        setCashbox(draft?.cashbox || { openingCash: '', countedCash: '' });
         setSubmitted(Boolean(getDailyReports().find((report) => report.date === nextDate)));
         setDraftSaved(Boolean(draft));
     };
@@ -155,7 +163,7 @@ export default function BaristaDashboard() {
     };
 
     const saveDraft = () => {
-        saveDailyDraft(date, { sales, expenses, inventory, inventoryUsed });
+        saveDailyDraft(date, { sales, expenses, inventory, inventoryUsed, cashbox });
         setDraftSaved(true);
     };
 
@@ -187,6 +195,7 @@ export default function BaristaDashboard() {
             sales: menuItems.filter((item) => item.available).map((item) => ({ ...item, cups: Number(sales[item.id] || 0) })),
             expenses,
             inventory: endingInventory,
+            cashbox,
         };
         try {
             await syncSupabaseInventoryItems(nextItems);
@@ -195,7 +204,7 @@ export default function BaristaDashboard() {
             console.error('Unable to sync the closing submission to Supabase.', error);
             return;
         }
-        saveDailyDraft(date, { sales, expenses, inventory, inventoryUsed });
+        saveDailyDraft(date, { sales, expenses, inventory, inventoryUsed, cashbox });
         saveInventoryItems(nextItems);
         setInventoryItems(nextItems);
         saveDailyReport(submittedReport);
@@ -298,6 +307,35 @@ export default function BaristaDashboard() {
     const selectedExpenseReport = expenseReports.find((report) => report.date === selectedExpenseDate);
     const selectedSalesReport = salesReports.find((report) => report.date === selectedSalesDate);
     const selectedRecord = reportsByDate.find((report) => report.date === selectedRecordDate);
+    const reportMonths = [...new Set(reportsByDate.map((report) => report.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
+    const [reportMonth, setReportMonth] = useState(() => getLocalDate().slice(0, 7));
+    useEffect(() => {
+        if (reportMonths.length && !reportMonths.includes(reportMonth)) setReportMonth(reportMonths[0]);
+    }, [reportMonths.join(','), reportMonth]);
+    const monthlyReports = reportsByDate.filter((report) => report.date.startsWith(reportMonth));
+    const monthlySales = monthlyReports.flatMap((report) => report.sales || []);
+    const monthlyExpenses = monthlyReports.flatMap((report) => report.expenses || []);
+    const monthlySalesTotal = monthlySales.reduce((total, item) => total + Number(item.cups || 0) * Number(item.price || 0), 0);
+    const monthlyExpenseTotal = monthlyExpenses.reduce((total, item) => total + Number(item.amount || 0), 0);
+    const monthlyCups = monthlySales.reduce((total, item) => total + Number(item.cups || 0), 0);
+    const monthlyMenuTotals = monthlySales.reduce((totals, item) => {
+        const key = item.name || item.id;
+        totals[key] = (totals[key] || 0) + Number(item.cups || 0);
+        return totals;
+    }, {});
+    const monthlyCategoryTotals = monthlyExpenses.reduce((totals, item) => {
+        const key = item.category || 'Other';
+        totals[key] = (totals[key] || 0) + Number(item.amount || 0);
+        return totals;
+    }, {});
+    const cashSales = menuItems.reduce((total, item) => total + Number(sales[item.id] || 0) * Number(item.price || 0), 0);
+    const cashExpenses = expenses.reduce((total, item) => total + Number(item.amount || 0), 0);
+    const expectedCash = Number(cashbox.openingCash || 0) + cashSales - cashExpenses;
+    const cashVariance = cashbox.countedCash === '' ? null : Number(cashbox.countedCash || 0) - expectedCash;
+    const previousCashboxReport = reportsByDate.find((report) => report.date < date && report.cashbox);
+    const previousCashboxAmount = previousCashboxReport?.cashbox?.countedCash === ''
+        ? Number(previousCashboxReport.cashbox.openingCash || 0) + reportTotalSales(previousCashboxReport) - reportTotalExpenses(previousCashboxReport)
+        : previousCashboxReport?.cashbox?.countedCash;
     const historyFilter = <div className="flex flex-wrap items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 p-2">
         {[
             ['all', 'All time'],
@@ -337,7 +375,7 @@ export default function BaristaDashboard() {
                     <DatePicker value={date} onChange={changeDate} />
                 </div>
 
-                <div className="sticky top-0 z-10 grid grid-cols-2 gap-1 rounded-2xl border border-stone-200 bg-white p-1 shadow-sm sm:grid-cols-5" role="tablist" aria-label="Dashboard sections">
+                <div className="sticky top-0 z-10 grid grid-cols-2 gap-1 rounded-2xl border border-stone-200 bg-white p-1 shadow-sm sm:grid-cols-7" role="tablist" aria-label="Dashboard sections">
                     {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} onClick={() => setActiveTab(id)} className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-2 py-3 text-xs font-semibold transition touch-manipulation sm:text-sm ${activeTab === id ? 'bg-amber-100 text-amber-800' : 'text-stone-500 hover:bg-stone-50 hover:text-stone-800'}`}><Icon size={16} /><span>{label}</span></button>)}
                 </div>
 
@@ -363,6 +401,71 @@ export default function BaristaDashboard() {
                 {activeTab === 'records' && <section className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" role="tabpanel">
                     <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">Submitted daily records</h2><p className="text-xs text-stone-500">A complete history of your submitted closing reports.</p></div>{historyFilter}</div>
                     {filteredHistoryReports.length === 0 ? <EmptyState>No closing records found for this filter.</EmptyState> : <div className="space-y-2">{filteredHistoryReports.map((report) => <button type="button" key={report.date} onClick={() => setSelectedRecordDate(selectedRecordDate === report.date ? null : report.date)} className="w-full rounded-xl border border-stone-200 bg-stone-50 p-4 text-left"><div className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{formatDate(report.date)}</span><span className="text-xs text-stone-500">{report.submittedAt ? new Date(report.submittedAt).toLocaleTimeString() : ''}</span></div><div className="mt-2 flex flex-wrap gap-4 text-xs text-stone-600"><span>{reportTotalCups(report)} cups sold</span><span>₱{reportTotalExpenses(report)} expenses</span><span>{(report.inventory || []).length} inventory items</span></div>{selectedRecord?.date === report.date && <div className="mt-4 grid gap-3 border-t border-stone-200 pt-3 text-xs sm:grid-cols-3"><div><p className="font-semibold">Sales</p>{(report.sales || []).filter((item) => item.cups > 0).map((item) => <p key={item.id}>{item.name}: {item.cups} cups</p>)}</div><div><p className="font-semibold">Expenses</p>{(report.expenses || []).map((item, index) => <p key={`${item.description}-${index}`}>{item.description}: ₱{item.amount}</p>)}</div><div><p className="font-semibold">Inventory usage and ending stock</p>{(report.inventory || []).map((item) => <p key={item.id}>{item.name}: used {item.used ?? 0} {item.unit}, ending {item.stock} {item.unit}</p>)}</div></div>}</button>)}</div>}
+                </section>}
+
+                {activeTab === 'cashbox' && <section className="space-y-5 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" role="tabpanel">
+                    <div>
+                        <h2 className="flex items-center gap-2 font-semibold"><Wallet size={18} className="text-amber-600" /> Cash Box</h2>
+                        <p className="mt-1 text-xs text-stone-500">Track the money kept in the cash box for this shift. Sales and submitted expenses update the expected balance automatically.</p>
+                    </div>
+                    {previousCashboxReport && <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">Previous shift ({formatDate(previousCashboxReport.date)}) recorded <strong>₱{Number(previousCashboxAmount || 0).toFixed(2)}</strong> in the cash box. Count the money physically, then enter it as this shift&apos;s opening cash.</div>}
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <label className="rounded-xl bg-stone-50 p-4 text-sm font-semibold">Opening cash
+                            <span className="mt-1 block text-xs font-normal text-stone-500">Money carried over from the previous shift</span>
+                            <input type="number" min="0" step="0.01" value={cashbox.openingCash} onChange={(event) => setCashbox({ ...cashbox, openingCash: event.target.value })} className="mt-3 w-full rounded-lg border border-stone-200 bg-white px-3 py-2" placeholder="0.00" />
+                        </label>
+                        <div className="rounded-xl bg-emerald-50 p-4"><p className="text-sm font-semibold">Cash received from sales</p><p className="mt-3 text-2xl font-bold text-emerald-700">₱{cashSales.toFixed(2)}</p><p className="mt-1 text-xs text-stone-500">Calculated from today&apos;s cups and menu prices</p></div>
+                        <div className="rounded-xl bg-rose-50 p-4"><p className="text-sm font-semibold">Expenses paid</p><p className="mt-3 text-2xl font-bold text-rose-700">₱{cashExpenses.toFixed(2)}</p><p className="mt-1 text-xs text-stone-500">From the expenses saved for this day</p></div>
+                        <div className="rounded-xl bg-amber-50 p-4"><p className="text-sm font-semibold">Expected in cash box</p><p className="mt-3 text-2xl font-bold text-amber-700">₱{expectedCash.toFixed(2)}</p><p className="mt-1 text-xs text-stone-500">Opening cash + sales − expenses</p></div>
+                    </div>
+                    <div className="grid gap-4 rounded-xl border border-stone-200 p-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                        <label className="text-sm font-semibold">Counted cash at hand
+                            <span className="mt-1 block text-xs font-normal text-stone-500">Enter the physical amount when checking or handing over the cash box.</span>
+                            <input type="number" min="0" step="0.01" value={cashbox.countedCash} onChange={(event) => setCashbox({ ...cashbox, countedCash: event.target.value })} className="mt-3 w-full rounded-lg border border-stone-200 bg-white px-3 py-2" placeholder="Leave blank until counting" />
+                        </label>
+                        <div className={`rounded-xl px-4 py-3 text-sm font-semibold ${cashVariance === null ? 'bg-stone-50 text-stone-500' : cashVariance === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'}`}>
+                            {cashVariance === null ? 'No count entered' : cashVariance === 0 ? 'Cash matches expected balance' : `${cashVariance > 0 ? 'Over' : 'Short'} by ₱${Math.abs(cashVariance).toFixed(2)}`}
+                        </div>
+                    </div>
+                    <button type="button" onClick={saveDraft} className="flex items-center gap-2 rounded-xl border border-stone-300 px-4 py-3 text-sm font-semibold text-stone-700"><Save size={16} /> Save cash box check</button>
+                </section>}
+
+                {activeTab === 'report' && <section className="print-report-shell space-y-5 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" role="tabpanel">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 className="font-semibold">Monthly Sales & Expense Report</h2>
+                            <p className="mt-1 text-xs text-stone-500">Review and print the monthly report from your submitted closing records.</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <label className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-500">
+                                Month
+                                <select value={reportMonth} onChange={(event) => setReportMonth(event.target.value)} className="max-w-36 bg-transparent font-semibold text-stone-700 outline-none">
+                                    {reportMonths.length === 0 ? <option value={reportMonth}>No reports available</option> : reportMonths.map((month) => <option key={month} value={month}>{formatMonth(month)}</option>)}
+                                </select>
+                            </label>
+                            <button type="button" onClick={() => window.print()} disabled={!monthlyReports.length} className="flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"><Printer size={16} /> Download PDF / Print</button>
+                        </div>
+                    </div>
+                    {monthlyReports.length === 0 ? <EmptyState>No submitted records found for this month.</EmptyState> : <>
+                        <div className="hidden border-b border-stone-300 pb-4 print:block">
+                            <div className="flex items-center gap-3"><img src={logo} alt="Truly Rich Coffee" className="h-16 w-16 object-contain" /><div><h1 className="text-2xl font-bold text-black">Truly Rich Coffee</h1><p className="text-sm text-gray-600">Monthly Sales and Expense Report</p></div></div>
+                            <div className="mt-4 flex justify-between text-sm text-black"><span>Report period: <strong>{formatMonth(reportMonth)}</strong></span><span>Generated: {new Date().toLocaleDateString()}</span></div>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="rounded-xl bg-emerald-50 p-4"><p className="text-xs font-bold uppercase text-stone-500">Gross sales</p><p className="mt-2 text-2xl font-bold text-emerald-700">₱{monthlySalesTotal.toFixed(2)}</p><p className="mt-1 text-xs text-stone-500">{monthlyCups} cups sold</p></div>
+                            <div className="rounded-xl bg-rose-50 p-4"><p className="text-xs font-bold uppercase text-stone-500">Total expenses</p><p className="mt-2 text-2xl font-bold text-rose-700">₱{monthlyExpenseTotal.toFixed(2)}</p><p className="mt-1 text-xs text-stone-500">{monthlyExpenses.length} expense entries</p></div>
+                            <div className="rounded-xl bg-amber-50 p-4"><p className="text-xs font-bold uppercase text-stone-500">Net after expenses</p><p className="mt-2 text-2xl font-bold text-amber-700">₱{(monthlySalesTotal - monthlyExpenseTotal).toFixed(2)}</p><p className="mt-1 text-xs text-stone-500">Sales less expenses</p></div>
+                            <div className="rounded-xl bg-stone-50 p-4"><p className="text-xs font-bold uppercase text-stone-500">Reported days</p><p className="mt-2 text-2xl font-bold text-stone-900">{monthlyReports.length}</p><p className="mt-1 text-xs text-stone-500">{formatMonth(reportMonth)}</p></div>
+                        </div>
+                        <div className="grid gap-5 lg:grid-cols-2">
+                            <div className="rounded-xl bg-stone-50 p-4"><h3 className="font-semibold">Sales by menu item</h3><div className="mt-3 space-y-2">{Object.entries(monthlyMenuTotals).sort(([, a], [, b]) => b - a).map(([name, cups]) => <div key={name} className="flex justify-between border-b border-stone-200 pb-2 text-sm"><span>{name}</span><strong className="text-emerald-700">{cups} cups</strong></div>)}</div></div>
+                            <div className="rounded-xl bg-stone-50 p-4"><h3 className="font-semibold">Expenses by category</h3><div className="mt-3 space-y-2">{Object.entries(monthlyCategoryTotals).sort(([, a], [, b]) => b - a).map(([category, amount]) => <div key={category} className="flex justify-between border-b border-stone-200 pb-2 text-sm"><span>{category}</span><strong className="text-rose-700">₱{amount.toFixed(2)}</strong></div>)}</div></div>
+                        </div>
+                        <div className="overflow-x-auto rounded-xl border border-stone-200">
+                            <h3 className="border-b border-stone-200 bg-stone-50 p-4 font-semibold">Daily report breakdown</h3>
+                            <table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-stone-50 text-xs uppercase text-stone-500"><tr><th className="p-3">Date</th><th className="p-3 text-right">Cups</th><th className="p-3 text-right">Sales</th><th className="p-3 text-right">Expenses</th><th className="p-3 text-right">Net</th></tr></thead><tbody className="divide-y divide-stone-200">{monthlyReports.map((report) => { const salesTotal = (report.sales || []).reduce((total, item) => total + Number(item.cups || 0) * Number(item.price || 0), 0); const expenseTotal = reportTotalExpenses(report); return <tr key={report.date}><td className="p-3 font-semibold">{formatDate(report.date)}</td><td className="p-3 text-right">{reportTotalCups(report)}</td><td className="p-3 text-right text-emerald-700">₱{salesTotal.toFixed(2)}</td><td className="p-3 text-right text-rose-700">₱{expenseTotal.toFixed(2)}</td><td className="p-3 text-right font-semibold">₱{(salesTotal - expenseTotal).toFixed(2)}</td></tr>; })}</tbody></table>
+                        </div>
+                    </>}
                 </section>}
 
                 {activeTab === 'ending' && <form onSubmit={submitReport} className="space-y-5 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" role="tabpanel">

@@ -84,6 +84,11 @@ function reportRows(report) {
         sales: (report.sales || []).map((item) => ({ report_date: report.date, menu_item_id: String(item.id), item_name: item.name, price: Number(item.price || 0), cups: Number(item.cups || 0) })),
         expenses: (report.expenses || []).map((item) => ({ report_date: report.date, description: item.description, category: item.category, amount: Number(item.amount || 0) })),
         inventory: (report.inventory || []).map((item) => ({ report_date: report.date, inventory_item_id: String(item.id), item_name: item.name, unit: item.unit, used_quantity: Number(item.used || 0), ending_quantity: Number(item.stock || 0) })),
+        cashbox: report.cashbox ? {
+            report_date: report.date,
+            opening_cash: Number(report.cashbox.openingCash || 0),
+            counted_cash: report.cashbox.countedCash === '' ? null : Number(report.cashbox.countedCash || 0),
+        } : null,
     };
 }
 
@@ -110,19 +115,24 @@ export async function loadSupabaseInventoryAdditions() {
 
 export async function loadSupabaseDailyReports() {
     if (!supabase) return getDailyReports();
-    const [{ data: reports, error: reportError }, { data: sales, error: salesError }, { data: expenses, error: expenseError }, { data: inventory, error: inventoryError }] = await Promise.all([
+    const [{ data: reports, error: reportError }, { data: sales, error: salesError }, { data: expenses, error: expenseError }, { data: inventory, error: inventoryError }, { data: cashboxes, error: cashboxError }] = await Promise.all([
         supabase.from('daily_reports').select('*').order('date', { ascending: false }),
         supabase.from('daily_report_sales').select('*'),
         supabase.from('daily_report_expenses').select('*'),
         supabase.from('daily_report_inventory').select('*'),
+        supabase.from('daily_report_cashbox').select('*'),
     ]);
-    if (reportError || salesError || expenseError || inventoryError) throw reportError || salesError || expenseError || inventoryError;
+    if (reportError || salesError || expenseError || inventoryError || cashboxError) throw reportError || salesError || expenseError || inventoryError || cashboxError;
     return (reports || []).map((report) => ({
         date: report.date,
         submittedAt: report.submitted_at,
         sales: (sales || []).filter((item) => item.report_date === report.date).map((item) => ({ id: item.menu_item_id, name: item.item_name, price: Number(item.price || 0), cups: Number(item.cups || 0) })),
         expenses: (expenses || []).filter((item) => item.report_date === report.date).map((item) => ({ description: item.description, category: item.category, amount: Number(item.amount || 0) })),
         inventory: (inventory || []).filter((item) => item.report_date === report.date).map((item) => ({ id: item.inventory_item_id, name: item.item_name, unit: item.unit, used: Number(item.used_quantity || 0), stock: Number(item.ending_quantity || 0) })),
+        cashbox: (cashboxes || []).find((item) => item.report_date === report.date) ? {
+            openingCash: Number((cashboxes || []).find((item) => item.report_date === report.date).opening_cash || 0),
+            countedCash: (cashboxes || []).find((item) => item.report_date === report.date).counted_cash == null ? '' : Number((cashboxes || []).find((item) => item.report_date === report.date).counted_cash),
+        } : undefined,
     }));
 }
 
@@ -161,6 +171,10 @@ export async function syncSupabaseDailyReport(report) {
         if (tableRows.length) {
             const { error: insertError } = await supabase.from(table).insert(tableRows);
             if (insertError) throw insertError;
+        }
+        if (rows.cashbox) {
+            const { error: cashboxError } = await supabase.from('daily_report_cashbox').upsert(rows.cashbox);
+            if (cashboxError) throw cashboxError;
         }
     }
 }
