@@ -19,10 +19,35 @@
   background-color: #fafaf9 !important;
 }
 
+.admin-dashboard-light .bg-gray-800 {
+  background-color: #f0eeeb !important;
+}
+
+.admin-dashboard-light .bg-amber-500\/5 {
+  background-color: #fffbeb !important;
+}
+
+.admin-dashboard-light .bg-amber-500\/10 {
+  background-color: #fef3c7 !important;
+}
+
+.admin-dashboard-light .bg-red-950\/40 {
+  background-color: #fef2f2 !important;
+}
+
 .admin-dashboard-light .border-gray-800,
 .admin-dashboard-light .border-gray-800\/80,
 .admin-dashboard-light .border-gray-800\/60 {
   border-color: #d6d3d1 !important;
+}
+
+.admin-dashboard-light .border-amber-500\/20,
+.admin-dashboard-light .border-amber-500\/30 {
+  border-color: #f5d78e !important;
+}
+
+.admin-dashboard-light .border-red-800\/40 {
+  border-color: #fecaca !important;
 }
 
 .admin-dashboard-light .text-white,
@@ -33,19 +58,45 @@
 
 .admin-dashboard-light .text-gray-300,
 .admin-dashboard-light .text-gray-400 {
-  color: #57534e !important;
+  color: #4b4640 !important;
 }
 
 .admin-dashboard-light .text-gray-500 {
   color: #78716c !important;
 }
 
+.admin-dashboard-light .text-amber-400 {
+  color: #a16207 !important;
+}
+
+.admin-dashboard-light .text-red-300 {
+  color: #b91c1c !important;
+}
+
+.admin-dashboard-light .hover\:text-gray-200:hover {
+  color: #1c1917 !important;
+}
+
+.admin-dashboard-light .hover\:bg-gray-700:hover {
+  background-color: #e7e5e4 !important;
+}
+
+.admin-dashboard-light .hover\:bg-red-900\/50:hover {
+  background-color: #fee2e2 !important;
+}
+
 .admin-dashboard-light input,
-.admin-dashboard-light select {
+.admin-dashboard-light select,
+.admin-dashboard-light textarea {
   background-color: #ffffff !important;
   border-color: #d6d3d1 !important;
   color: #1c1917 !important;
   color-scheme: light;
+}
+
+.admin-dashboard-light input::placeholder,
+.admin-dashboard-light textarea::placeholder {
+  color: #78716c !important;
 }
 
 .barista-dashboard {

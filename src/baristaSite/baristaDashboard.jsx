@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    BarChart3, CalendarDays, CheckCircle2, Coffee, FileText, LogOut,
+    BarChart3, CalendarDays, CheckCircle2, FileText, LogOut,
     Package, Plus, Receipt, Save, Sun, Moon, Trash2, X,
 } from 'lucide-react';
 import {
@@ -10,6 +10,7 @@ import {
     loadSupabaseDailyReports, loadSupabaseInventoryAdditions, loadSupabaseInventoryItems, loadSupabaseMenuItems,
     deleteSupabaseInventoryItem, syncSupabaseDailyReport, syncSupabaseInventoryAdditions, syncSupabaseInventoryItems,
 } from '../shared/dailyReports';
+import logo from '../images/logo-trc.png';
 import { supabase } from '../shared/supabaseClient';
 
 const today = new Date().toISOString().slice(0, 10);
@@ -34,6 +35,15 @@ function reportTotalCups(report) {
 
 function reportTotalExpenses(report) {
     return (report.expenses || []).reduce((total, item) => total + Number(item.amount || 0), 0);
+}
+
+function formatMonth(month) {
+    return new Date(`${month}-01T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+}
+
+function getLocalDate() {
+    const current = new Date();
+    return `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
 }
 
 function DatePicker({ value, onChange }) {
@@ -71,6 +81,9 @@ export default function BaristaDashboard() {
     const [selectedSalesDate, setSelectedSalesDate] = useState(null);
     const [selectedRecordDate, setSelectedRecordDate] = useState(null);
     const [theme, setTheme] = useState(() => localStorage.getItem('baristaTheme') || 'light');
+    const [historyFilterType, setHistoryFilterType] = useState('all');
+    const [historyMonth, setHistoryMonth] = useState(() => getLocalDate().slice(0, 7));
+    const [historyDate, setHistoryDate] = useState(getLocalDate);
 
     useEffect(() => {
         const verifyBaristaAccess = async () => {
@@ -269,19 +282,43 @@ export default function BaristaDashboard() {
     };
 
     const reportsByDate = useMemo(() => [...dailyReports].sort((a, b) => b.date.localeCompare(a.date)), [dailyReports]);
-    const expenseReports = reportsByDate.filter((report) => (report.expenses || []).length);
-    const salesReports = reportsByDate.filter((report) => (report.sales || []).length);
+    const historyMonths = useMemo(() => [...new Set(reportsByDate.map((report) => report.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a)), [reportsByDate]);
+    useEffect(() => {
+        if (historyMonths.length && !historyMonths.includes(historyMonth)) setHistoryMonth(historyMonths[0]);
+    }, [historyMonths.join(','), historyMonth]);
+    const filteredHistoryReports = useMemo(() => reportsByDate.filter((report) => {
+        if (historyFilterType === 'today') return report.date === getLocalDate();
+        if (historyFilterType === 'month') return report.date.startsWith(historyMonth);
+        if (historyFilterType === 'date') return report.date === historyDate;
+        return true;
+    }), [reportsByDate, historyFilterType, historyMonth, historyDate]);
+    const expenseReports = filteredHistoryReports.filter((report) => (report.expenses || []).length);
+    const salesReports = filteredHistoryReports.filter((report) => (report.sales || []).length);
     const currentReport = dailyReports.find((report) => report.date === date);
     const selectedExpenseReport = expenseReports.find((report) => report.date === selectedExpenseDate);
     const selectedSalesReport = salesReports.find((report) => report.date === selectedSalesDate);
     const selectedRecord = reportsByDate.find((report) => report.date === selectedRecordDate);
+    const historyFilter = <div className="flex flex-wrap items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 p-2">
+        {[
+            ['all', 'All time'],
+            ['today', 'Today'],
+        ].map(([value, label]) => <button key={value} type="button" onClick={() => setHistoryFilterType(value)} className={`rounded-lg px-3 py-2 text-xs font-semibold ${historyFilterType === value ? 'bg-amber-600 text-white' : 'text-stone-600 hover:bg-white'}`}>{label}</button>)}
+        <label className="flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-xs text-stone-500">Month
+            <select value={historyMonth} onChange={(event) => { setHistoryMonth(event.target.value); setHistoryFilterType('month'); }} className="max-w-36 bg-transparent font-semibold text-stone-700 outline-none">
+                {historyMonths.length === 0 ? <option value={historyMonth}>No months available</option> : historyMonths.map((month) => <option key={month} value={month}>{formatMonth(month)}</option>)}
+            </select>
+        </label>
+        <label className="flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-xs text-stone-500">Date
+            <input type="date" value={historyDate} onChange={(event) => { setHistoryDate(event.target.value); setHistoryFilterType('date'); }} className="bg-transparent font-semibold text-stone-700 outline-none" />
+        </label>
+    </div>;
 
     return (
         <main className={`barista-dashboard min-h-screen bg-[#faf9f7] text-stone-900 ${theme === 'dark' ? 'barista-dashboard-dark' : ''}`}>
             <header className="border-b border-stone-200 bg-white">
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
                     <div className="flex items-center gap-3">
-                        <div className="rounded-xl bg-amber-100 p-2.5 text-amber-700"><Coffee size={22} /></div>
+                        <img src={logo} alt="Truly Rich Coffee" className="h-12 w-12 rounded-xl border border-amber-200 bg-amber-50 object-contain p-1.5" />
                         <div><p className="text-lg font-bold">Barista dashboard</p><p className="text-xs text-stone-500">Manage your shift and close the day</p></div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -314,18 +351,18 @@ export default function BaristaDashboard() {
                 </section>}
 
                 {activeTab === 'expenses' && <section className="space-y-5 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" role="tabpanel">
-                    <div><h2 className="font-semibold">Expenses by date</h2><p className="text-xs text-stone-500">Select a submitted date to see every expense recorded for that day.</p></div>
+                    <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">Expenses by date</h2><p className="text-xs text-stone-500">Select a submitted date to see every expense recorded for that day.</p></div>{historyFilter}</div>
                     {expenseReports.length === 0 ? <EmptyState>No submitted expenses yet. Add expenses in the Ending submission tab.</EmptyState> : <div className="grid gap-3 md:grid-cols-[240px_1fr]"><div className="space-y-2">{expenseReports.map((report) => <button type="button" key={report.date} onClick={() => setSelectedExpenseDate(report.date)} className={`w-full rounded-xl border p-3 text-left ${selectedExpenseDate === report.date ? 'border-amber-400 bg-amber-50' : 'border-stone-200 bg-stone-50'}`}><p className="text-sm font-semibold">{formatDate(report.date)}</p><p className="mt-1 text-xs text-stone-500">{report.expenses.length} expense{report.expenses.length === 1 ? '' : 's'} · ₱{reportTotalExpenses(report)}</p></button>)}</div><div>{selectedExpenseReport ? <div className="rounded-xl bg-stone-50 p-4"><h3 className="font-semibold">{formatDate(selectedExpenseReport.date)}</h3><div className="mt-3 space-y-2">{selectedExpenseReport.expenses.map((item, index) => <div key={`${item.description}-${index}`} className="flex justify-between border-b border-stone-200 pb-2 text-sm"><span>{item.description}<span className="ml-2 text-xs text-stone-500">{item.category}</span></span><strong>₱{item.amount}</strong></div>)}</div></div> : <EmptyState>Choose a date to view its expense list.</EmptyState>}</div></div>}
                 </section>}
 
                 {activeTab === 'sales' && <section className="space-y-5 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" role="tabpanel">
-                    <div><h2 className="font-semibold">Sales by day</h2><p className="text-xs text-stone-500">Choose a date to see the full cup count and menu breakdown.</p></div>
+                    <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">Sales by day</h2><p className="text-xs text-stone-500">Choose a date to see the full cup count and menu breakdown.</p></div>{historyFilter}</div>
                     {salesReports.length === 0 ? <EmptyState>No submitted sales yet.</EmptyState> : <div className="grid gap-3 md:grid-cols-[240px_1fr]"><div className="space-y-2">{salesReports.map((report) => <button type="button" key={report.date} onClick={() => setSelectedSalesDate(report.date)} className={`w-full rounded-xl border p-3 text-left ${selectedSalesDate === report.date ? 'border-amber-400 bg-amber-50' : 'border-stone-200 bg-stone-50'}`}><p className="text-sm font-semibold">{formatDate(report.date)}</p><p className="mt-1 text-xs text-stone-500">{reportTotalCups(report)} cups sold</p></button>)}</div><div>{selectedSalesReport ? <div className="rounded-xl bg-stone-50 p-4"><div className="flex justify-between"><h3 className="font-semibold">{formatDate(selectedSalesReport.date)}</h3><strong className="text-amber-700">{reportTotalCups(selectedSalesReport)} cups</strong></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{(selectedSalesReport.sales || []).map((item) => <div key={item.id} className="flex justify-between rounded-lg bg-white px-3 py-2 text-sm"><span>{item.name}</span><strong>{item.cups}</strong></div>)}</div></div> : <EmptyState>Choose a date to view its sales details.</EmptyState>}</div></div>}
                 </section>}
 
                 {activeTab === 'records' && <section className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" role="tabpanel">
-                    <div><h2 className="font-semibold">Submitted daily records</h2><p className="text-xs text-stone-500">A complete history of your submitted closing reports.</p></div>
-                    {reportsByDate.length === 0 ? <EmptyState>No closing records submitted yet.</EmptyState> : <div className="space-y-2">{reportsByDate.map((report) => <button type="button" key={report.date} onClick={() => setSelectedRecordDate(selectedRecordDate === report.date ? null : report.date)} className="w-full rounded-xl border border-stone-200 bg-stone-50 p-4 text-left"><div className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{formatDate(report.date)}</span><span className="text-xs text-stone-500">{report.submittedAt ? new Date(report.submittedAt).toLocaleTimeString() : ''}</span></div><div className="mt-2 flex flex-wrap gap-4 text-xs text-stone-600"><span>{reportTotalCups(report)} cups sold</span><span>₱{reportTotalExpenses(report)} expenses</span><span>{(report.inventory || []).length} inventory items</span></div>{selectedRecord?.date === report.date && <div className="mt-4 grid gap-3 border-t border-stone-200 pt-3 text-xs sm:grid-cols-3"><div><p className="font-semibold">Sales</p>{(report.sales || []).filter((item) => item.cups > 0).map((item) => <p key={item.id}>{item.name}: {item.cups} cups</p>)}</div><div><p className="font-semibold">Expenses</p>{(report.expenses || []).map((item, index) => <p key={`${item.description}-${index}`}>{item.description}: ₱{item.amount}</p>)}</div><div><p className="font-semibold">Inventory usage and ending stock</p>{(report.inventory || []).map((item) => <p key={item.id}>{item.name}: used {item.used ?? 0} {item.unit}, ending {item.stock} {item.unit}</p>)}</div></div>}</button>)}</div>}
+                    <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">Submitted daily records</h2><p className="text-xs text-stone-500">A complete history of your submitted closing reports.</p></div>{historyFilter}</div>
+                    {filteredHistoryReports.length === 0 ? <EmptyState>No closing records found for this filter.</EmptyState> : <div className="space-y-2">{filteredHistoryReports.map((report) => <button type="button" key={report.date} onClick={() => setSelectedRecordDate(selectedRecordDate === report.date ? null : report.date)} className="w-full rounded-xl border border-stone-200 bg-stone-50 p-4 text-left"><div className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{formatDate(report.date)}</span><span className="text-xs text-stone-500">{report.submittedAt ? new Date(report.submittedAt).toLocaleTimeString() : ''}</span></div><div className="mt-2 flex flex-wrap gap-4 text-xs text-stone-600"><span>{reportTotalCups(report)} cups sold</span><span>₱{reportTotalExpenses(report)} expenses</span><span>{(report.inventory || []).length} inventory items</span></div>{selectedRecord?.date === report.date && <div className="mt-4 grid gap-3 border-t border-stone-200 pt-3 text-xs sm:grid-cols-3"><div><p className="font-semibold">Sales</p>{(report.sales || []).filter((item) => item.cups > 0).map((item) => <p key={item.id}>{item.name}: {item.cups} cups</p>)}</div><div><p className="font-semibold">Expenses</p>{(report.expenses || []).map((item, index) => <p key={`${item.description}-${index}`}>{item.description}: ₱{item.amount}</p>)}</div><div><p className="font-semibold">Inventory usage and ending stock</p>{(report.inventory || []).map((item) => <p key={item.id}>{item.name}: used {item.used ?? 0} {item.unit}, ending {item.stock} {item.unit}</p>)}</div></div>}</button>)}</div>}
                 </section>}
 
                 {activeTab === 'ending' && <form onSubmit={submitReport} className="space-y-5 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" role="tabpanel">

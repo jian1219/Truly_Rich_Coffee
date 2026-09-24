@@ -1,12 +1,13 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Coffee, Package, DollarSign, Users, Receipt, 
+  Package, DollarSign, Users, Receipt, 
   LogOut, Plus, Trash2, Edit2, Check, X, ShieldCheck, 
   TrendingUp, Calendar, ShoppingBag, ArrowDownRight, Tablet, Filter, Settings, Sun, Moon
 } from 'lucide-react';
 import { getDailyReports, getInventoryAdditions, getInventoryItems, getMenuItems, loadSupabaseDailyReports, loadSupabaseInventoryAdditions, loadSupabaseInventoryItems, loadSupabaseMenuItems, saveMenuItems, syncSupabaseMenuItems } from '../shared/dailyReports';
 import { createBaristaAccount, loadStaffProfiles, resetBaristaPassword, supabase } from '../shared/supabaseClient';
+import logo from '../images/logo-trc.png';
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -80,8 +81,10 @@ export default function Admin() {
 
   // Sales Filter States: 'all', 'today', 'specific-month', 'specific-date'
   const [salesFilterType, setSalesFilterType] = useState('all');
-  const [selectedSalesMonth, setSelectedSalesMonth] = useState('2026-06');
-  const [selectedSalesDate, setSelectedSalesDate] = useState('2026-06-08');
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const [selectedSalesMonth, setSelectedSalesMonth] = useState(todayStr.slice(0, 7));
+  const [selectedSalesDate, setSelectedSalesDate] = useState(todayStr);
 
   // Upgraded Staff State with POS Tablet Access Permission
   const [staff, setStaff] = useState([
@@ -91,8 +94,8 @@ export default function Admin() {
 
   // Expense Filter States: 'all', 'today', 'specific-month', 'specific-date'
   const [expenseFilterType, setExpenseFilterType] = useState('all');
-  const [selectedExpenseMonth, setSelectedExpenseMonth] = useState('2026-06');
-  const [selectedExpenseDate, setSelectedExpenseDate] = useState('2026-06-08');
+  const [selectedExpenseMonth, setSelectedExpenseMonth] = useState(todayStr.slice(0, 7));
+  const [selectedExpenseDate, setSelectedExpenseDate] = useState(todayStr);
 
   // Modal states for Product CRUD
   const [isOpenModal, setIsOpenModal] = useState(false);
@@ -233,7 +236,12 @@ export default function Admin() {
   };
 
   // --- SALES FILTER LOGIC ---
-  const todayStr = '2026-06-08';
+  const reportMonths = [...new Set([...allSales, ...allExpenses].map((item) => item.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
+  const formatMonth = (month) => new Date(`${month}-01T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+  useEffect(() => {
+    if (reportMonths.length && !reportMonths.includes(selectedSalesMonth)) setSelectedSalesMonth(reportMonths[0]);
+    if (reportMonths.length && !reportMonths.includes(selectedExpenseMonth)) setSelectedExpenseMonth(reportMonths[0]);
+  }, [reportMonths.join(','), selectedSalesMonth, selectedExpenseMonth]);
 
   const filteredSales = allSales.filter(sale => {
     if (salesFilterType === 'today') return sale.date === todayStr;
@@ -265,9 +273,7 @@ export default function Admin() {
       {/* TOP HEADER */}
       <header className="bg-gray-900 border-b border-gray-800 px-8 py-4 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-amber-600/20 border border-amber-500/30 rounded-xl">
-            <Coffee className="w-6 h-6 text-amber-500" />
-          </div>
+          <img src={logo} alt="Truly Rich Coffee" className="h-12 w-12 rounded-xl border border-amber-500/30 bg-amber-600/10 object-contain p-1.5" />
           <div>
             <h1 className="font-bold tracking-tight text-white flex items-center gap-2">
               TRC Admin 
@@ -458,18 +464,18 @@ export default function Admin() {
               </div>
 
               {/* Filter controls */}
-              <div className="flex flex-wrap items-center gap-2 bg-gray-900 border border-gray-800 p-2 rounded-2xl">
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-800 bg-gray-950/60 p-2">
                 <button
                   onClick={() => setSalesFilterType('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
                     salesFilterType === 'all' ? 'bg-amber-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'
                   }`}
                 >
-                  All-Time
+                  All time
                 </button>
                 <button
                   onClick={() => setSalesFilterType('today')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
                     salesFilterType === 'today' ? 'bg-amber-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'
                   }`}
                 >
@@ -477,7 +483,7 @@ export default function Admin() {
                 </button>
 
                 {/* Month Picker Dropdown */}
-                <div className="flex items-center gap-1 bg-gray-950 border border-gray-800 px-2.5 py-1 rounded-xl">
+                <div className="flex items-center gap-1 rounded-lg border border-gray-800 bg-gray-950 px-2 py-1.5">
                   <span className="text-xs text-gray-400">Month:</span>
                   <select
                     value={selectedSalesMonth}
@@ -487,15 +493,13 @@ export default function Admin() {
                     }}
                     className="bg-transparent text-xs text-amber-400 font-semibold focus:outline-none cursor-pointer"
                   >
-                    <option value="2026-06" className="bg-gray-900 text-white">June 2026</option>
-                    <option value="2026-05" className="bg-gray-900 text-white">May 2026</option>
-                    <option value="2026-04" className="bg-gray-900 text-white">April 2026</option>
+                    {reportMonths.length === 0 ? <option value={selectedSalesMonth}>No months available</option> : reportMonths.map((month) => <option key={month} value={month}>{formatMonth(month)}</option>)}
                   </select>
                 </div>
 
                 {/* Specific Date Picker */}
-                <div className="flex items-center gap-1 bg-gray-500 border border-gray-800 px-2.5 py-1 rounded-xl">
-                  <span className="text-xs text-gray-950">Date:</span>
+                <div className="flex items-center gap-1 rounded-lg border border-gray-800 bg-gray-950 px-2 py-1.5">
+                  <span className="text-xs text-gray-400">Date:</span>
                   <input
                     type="date"
                     value={selectedSalesDate}
@@ -749,26 +753,26 @@ export default function Admin() {
                 <p className="text-sm text-gray-400">Select any past month or specific date to review historical cost outflows.</p>
               </div>
               {/* Filter controls */}
-              <div className="flex flex-wrap items-center gap-2 bg-gray-900 border border-gray-800 p-2 rounded-2xl">
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-800 bg-gray-950/60 p-2">
                 <button
                   onClick={() => setExpenseFilterType('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                    expenseFilterType === 'all' ? 'bg-red-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                    expenseFilterType === 'all' ? 'bg-amber-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'
                   }`}
                 >
-                  All-Time
+                  All time
                 </button>
                 <button
                   onClick={() => setExpenseFilterType('today')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                    expenseFilterType === 'today' ? 'bg-red-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                    expenseFilterType === 'today' ? 'bg-amber-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'
                   }`}
                 >
                   Today
                 </button>
 
                 {/* Month Picker Dropdown */}
-                <div className="flex items-center gap-1 bg-gray-950 border border-gray-800 px-2.5 py-1 rounded-xl">
+                <div className="flex items-center gap-1 rounded-lg border border-gray-800 bg-gray-950 px-2 py-1.5">
                   <span className="text-xs text-gray-400">Month:</span>
                   <select
                     value={selectedExpenseMonth}
@@ -776,17 +780,15 @@ export default function Admin() {
                       setSelectedExpenseMonth(e.target.value);
                       setExpenseFilterType('month');
                     }}
-                    className="bg-transparent text-xs text-red-400 font-semibold focus:outline-none cursor-pointer"
+                    className="bg-transparent text-xs text-amber-400 font-semibold focus:outline-none cursor-pointer"
                   >
-                    <option value="2026-06" className="bg-gray-900 text-white">June 2026</option>
-                    <option value="2026-05" className="bg-gray-900 text-white">May 2026</option>
-                    <option value="2026-04" className="bg-gray-900 text-white">April 2026</option>
+                    {reportMonths.length === 0 ? <option value={selectedExpenseMonth}>No months available</option> : reportMonths.map((month) => <option key={month} value={month}>{formatMonth(month)}</option>)}
                   </select>
                 </div>
 
                 {/* Specific Date Picker */}
-                <div className="flex items-center gap-1 bg-gray-500 border border-gray-800 px-2.5 py-1 rounded-xl">
-                  <span className="text-xs text-gray-950">Date:</span>
+                <div className="flex items-center gap-1 rounded-lg border border-gray-800 bg-gray-950 px-2 py-1.5">
+                  <span className="text-xs text-gray-400">Date:</span>
                   <input
                     type="date"
                     value={selectedExpenseDate}
@@ -794,7 +796,7 @@ export default function Admin() {
                       setSelectedExpenseDate(e.target.value);
                       setExpenseFilterType('date');
                     }}
-                    className="bg-transparent text-xs text-red-600 font-semibold focus:outline-none cursor-pointer"
+                    className="bg-transparent text-xs text-amber-400 font-semibold focus:outline-none cursor-pointer"
                   />
                 </div>
               </div>
