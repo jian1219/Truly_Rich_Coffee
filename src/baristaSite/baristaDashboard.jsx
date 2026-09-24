@@ -8,7 +8,7 @@ import {
     getDailyDraft, getDailyReports, getInventoryAdditions, getInventoryItems, getMenuItems,
     saveDailyDraft, saveDailyReport, saveInventoryAdditions, saveInventoryItems,
     loadSupabaseDailyReports, loadSupabaseInventoryAdditions, loadSupabaseInventoryItems, loadSupabaseMenuItems,
-    syncSupabaseDailyReport, syncSupabaseInventoryAdditions, syncSupabaseInventoryItems,
+    deleteSupabaseInventoryItem, syncSupabaseDailyReport, syncSupabaseInventoryAdditions, syncSupabaseInventoryItems,
 } from '../shared/dailyReports';
 import { supabase } from '../shared/supabaseClient';
 
@@ -146,9 +146,16 @@ export default function BaristaDashboard() {
         setDraftSaved(true);
     };
 
-    const submitReport = (event) => {
+    const submitReport = async (event) => {
         event.preventDefault();
-        const existingReport = getDailyReports().find((report) => report.date === date);
+        let existingReport;
+        try {
+            const reports = await loadSupabaseDailyReports();
+            existingReport = reports.find((report) => report.date === date);
+        } catch (error) {
+            console.error('Unable to verify the existing daily report before submission.', error);
+            return;
+        }
         const nextItems = inventoryItems.map((item) => {
             const previousUsed = Number(existingReport?.inventory?.find((entry) => entry.id === item.id)?.used || 0);
             const startingQuantity = Number(item.quantity || 0) + previousUsed;
@@ -161,10 +168,6 @@ export default function BaristaDashboard() {
             const used = Number(inventoryUsed[item.id] || 0);
             return { ...item, stock: Math.max(0, startingQuantity - used), used };
         });
-        saveDailyDraft(date, { sales, expenses, inventory, inventoryUsed });
-        saveInventoryItems(nextItems);
-        setInventoryItems(nextItems);
-        syncSupabaseInventoryItems(nextItems).catch((error) => console.error('Unable to sync inventory to Supabase.', error));
         const submittedReport = {
             date,
             submittedAt: new Date().toISOString(),
@@ -172,17 +175,24 @@ export default function BaristaDashboard() {
             expenses,
             inventory: endingInventory,
         };
-        saveDailyReport({
-            ...submittedReport,
-        });
-        syncSupabaseDailyReport(submittedReport).catch((error) => console.error('Unable to sync daily report to Supabase.', error));
+        try {
+            await syncSupabaseInventoryItems(nextItems);
+            await syncSupabaseDailyReport(submittedReport);
+        } catch (error) {
+            console.error('Unable to sync the closing submission to Supabase.', error);
+            return;
+        }
+        saveDailyDraft(date, { sales, expenses, inventory, inventoryUsed });
+        saveInventoryItems(nextItems);
+        setInventoryItems(nextItems);
+        saveDailyReport(submittedReport);
         setDailyReports(getDailyReports());
         setSubmitted(true);
         setDraftSaved(true);
         setActiveTab('records');
     };
 
-    const addNewInventory = (event) => {
+    const addNewInventory = async (event) => {
         event.preventDefault();
         const name = newInventory.name.trim();
         if (!name || newInventory.quantity === '' || Number(newInventory.quantity) < 0) return;
@@ -193,16 +203,27 @@ export default function BaristaDashboard() {
             quantity: Number(newInventory.quantity),
         };
         const nextItems = [...inventoryItems, item];
+        try {
+            await syncSupabaseInventoryItems(nextItems);
+        } catch (error) {
+            console.error('Unable to add inventory to Supabase.', error);
+            return;
+        }
         setInventoryItems(nextItems);
         setInventory((current) => ({ ...current, [item.id]: current[item.id] || item.quantity }));
         saveInventoryItems(nextItems);
-        syncSupabaseInventoryItems(nextItems).catch((error) => console.error('Unable to sync inventory to Supabase.', error));
         setNewInventory({ name: '', quantity: '', unit: 'pcs' });
         setShowNewInventoryForm(false);
     };
 
-    const deleteInventory = (id) => {
+    const deleteInventory = async (id) => {
         const nextItems = inventoryItems.filter((item) => item.id !== id);
+        try {
+            await deleteSupabaseInventoryItem(id);
+        } catch (error) {
+            console.error('Unable to delete inventory from Supabase.', error);
+            return;
+        }
         setInventoryItems(nextItems);
         saveInventoryItems(nextItems);
     };
@@ -222,7 +243,7 @@ export default function BaristaDashboard() {
         setAdditionForm({ itemId: '', quantity: '' });
     };
 
-    const submitInventoryAdditions = () => {
+    const submitInventoryAdditions = async () => {
         if (!pendingAdditions.length) return;
         const nextItems = inventoryItems.map((item) => ({
             ...item,
@@ -232,10 +253,15 @@ export default function BaristaDashboard() {
         }));
         const savedAdditions = pendingAdditions.map((addition) => ({ ...addition, date, submittedAt: new Date().toISOString() }));
         const nextAdditions = [...inventoryAdditions, ...savedAdditions];
+        try {
+            await syncSupabaseInventoryItems(nextItems);
+            await syncSupabaseInventoryAdditions(savedAdditions);
+        } catch (error) {
+            console.error('Unable to sync inventory additions to Supabase.', error);
+            return;
+        }
         saveInventoryItems(nextItems);
         saveInventoryAdditions(nextAdditions);
-        syncSupabaseInventoryItems(nextItems).catch((error) => console.error('Unable to sync inventory to Supabase.', error));
-        syncSupabaseInventoryAdditions(savedAdditions).catch((error) => console.error('Unable to sync additions to Supabase.', error));
         setInventoryItems(nextItems);
         setInventoryAdditions(nextAdditions);
         setPendingAdditions([]);

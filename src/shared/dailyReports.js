@@ -103,9 +103,9 @@ export async function loadSupabaseInventoryItems() {
 
 export async function loadSupabaseInventoryAdditions() {
     if (!supabase) return getInventoryAdditions();
-    const { data, error } = await supabase.from('inventory_additions').select('*').order('submitted_at', { ascending: false });
+    const { data, error } = await supabase.from('inventory_additions').select('*, inventory_items(name, unit)').order('submitted_at', { ascending: false });
     if (error) throw error;
-    return (data || []).map((item) => ({ id: item.id, itemId: item.item_id, name: item.item_id, unit: 'pcs', quantity: Number(item.quantity), date: item.date, submittedAt: item.submitted_at }));
+    return (data || []).map((item) => ({ id: item.id, itemId: item.item_id, name: item.inventory_items?.name || item.item_id, unit: item.inventory_items?.unit || 'pcs', quantity: Number(item.quantity), date: item.date, submittedAt: item.submitted_at }));
 }
 
 export async function loadSupabaseDailyReports() {
@@ -138,9 +138,15 @@ export async function syncSupabaseInventoryItems(items) {
     if (error) throw error;
 }
 
+export async function deleteSupabaseInventoryItem(id) {
+    if (!supabase) return;
+    const { error } = await supabase.from('inventory_items').delete().eq('id', String(id));
+    if (error) throw error;
+}
+
 export async function syncSupabaseInventoryAdditions(additions) {
     if (!supabase || !additions.length) return;
-    const { error } = await supabase.from('inventory_additions').insert(additions.map((item) => ({ item_id: item.itemId, quantity: Number(item.quantity), date: item.date, submitted_at: item.submittedAt })));
+    const { error } = await supabase.from('inventory_additions').insert(additions.map((item) => ({ item_id: String(item.itemId), quantity: Number(item.quantity), date: item.date, submitted_at: item.submittedAt })));
     if (error) throw error;
 }
 

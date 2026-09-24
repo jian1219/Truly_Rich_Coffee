@@ -39,10 +39,17 @@ export default function Admin() {
   }, []);
 
   useEffect(() => {
-    const refreshReports = () => {
-      setDailyReports(getDailyReports());
-      setInventoryItems(getInventoryItems());
-      setInventoryAdditions(getInventoryAdditions());
+    const refreshReports = async () => {
+      try {
+        const [remoteInventory, remoteReports, remoteAdditions] = await Promise.all([
+          loadSupabaseInventoryItems(), loadSupabaseDailyReports(), loadSupabaseInventoryAdditions(),
+        ]);
+        setDailyReports(remoteReports);
+        setInventoryItems(remoteInventory);
+        setInventoryAdditions(remoteAdditions);
+      } catch (error) {
+        console.error('Unable to refresh admin data from Supabase.', error);
+      }
     };
     window.addEventListener('storage', refreshReports);
     return () => window.removeEventListener('storage', refreshReports);
