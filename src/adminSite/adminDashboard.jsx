@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Coffee, Package, DollarSign, Users, Receipt, 
   LogOut, Plus, Trash2, Edit2, Check, X, ShieldCheck, 
-  TrendingUp, Calendar, ShoppingBag, ArrowDownRight, Tablet, Filter
+  TrendingUp, Calendar, ShoppingBag, ArrowDownRight, Tablet, Filter, Settings, Sun, Moon
 } from 'lucide-react';
 import { getDailyReports, getInventoryAdditions, getInventoryItems, getMenuItems, loadSupabaseDailyReports, loadSupabaseInventoryAdditions, loadSupabaseInventoryItems, loadSupabaseMenuItems, saveMenuItems, syncSupabaseMenuItems } from '../shared/dailyReports';
-import { createBaristaAccount, loadStaffProfiles, resetBaristaPassword } from '../shared/supabaseClient';
+import { createBaristaAccount, loadStaffProfiles, resetBaristaPassword, supabase } from '../shared/supabaseClient';
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -20,6 +20,26 @@ export default function Admin() {
   const [resetStaff, setResetStaff] = useState(null);
   const [resetPassword, setResetPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('adminTheme') || 'dark');
+  const [profileForm, setProfileForm] = useState({ username: '', password: '', confirmPassword: '' });
+  const [profileMessage, setProfileMessage] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('adminTheme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!supabase) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from('profiles').select('username').eq('id', user.id).single();
+      setProfileForm((current) => ({ ...current, username: profile?.username || user.email?.split('@')[0] || '' }));
+    };
+    loadProfile();
+  }, []);
 
   useEffect(() => {
     const loadRemoteData = async () => {
@@ -108,8 +128,44 @@ export default function Admin() {
 
   // Logout Handler
   const handleLogout = () => {
+    supabase?.auth.signOut();
     localStorage.removeItem('isAdminAuthenticated');
     navigate('/admin/login');
+  };
+
+  const saveProfileSettings = async (event) => {
+    event.preventDefault();
+    setProfileMessage('');
+    setProfileError('');
+    if (!supabase) {
+      setProfileError('Supabase is not configured.');
+      return;
+    }
+    if (profileForm.password && profileForm.password !== profileForm.confirmPassword) {
+      setProfileError('Passwords do not match.');
+      return;
+    }
+    if (profileForm.password && profileForm.password.length < 8) {
+      setProfileError('Password must be at least 8 characters.');
+      return;
+    }
+    setProfileLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Your admin session has expired. Please log in again.');
+      const { error: profileErrorResponse } = await supabase.from('profiles').update({ username: profileForm.username.trim() }).eq('id', user.id);
+      if (profileErrorResponse) throw profileErrorResponse;
+      if (profileForm.password) {
+        const { error: passwordError } = await supabase.auth.updateUser({ password: profileForm.password });
+        if (passwordError) throw passwordError;
+      }
+      setProfileForm((current) => ({ ...current, password: '', confirmPassword: '' }));
+      setProfileMessage('Profile settings saved successfully.');
+    } catch (error) {
+      setProfileError(error.message || 'Unable to save profile settings.');
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   // Product CRUD functions
@@ -204,7 +260,7 @@ export default function Admin() {
   const totalExpensesAll = allExpenses.reduce((sum, item) => sum + item.amount, 0);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 font-sans flex flex-col">
+    <div className={`admin-dashboard min-h-screen font-sans flex flex-col ${theme === 'light' ? 'admin-dashboard-light' : 'bg-gray-950 text-gray-100'}`}>
       
       {/* TOP HEADER */}
       <header className="bg-gray-900 border-b border-gray-800 px-8 py-4 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md">
@@ -286,6 +342,16 @@ export default function Admin() {
           }`}
         >
           <Receipt className="w-4 h-4" /> Expenses
+        </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`flex items-center gap-2 py-4 px-5 border-b-2 font-semibold text-sm transition ${
+            activeTab === 'settings'
+              ? 'border-amber-500 text-amber-400 bg-amber-500/5'
+              : 'border-transparent text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <Settings className="w-4 h-4" /> Settings
         </button>
       </div>
 
@@ -779,6 +845,41 @@ export default function Admin() {
                 </h3>
               </div>
               {filteredExpenses.length === 0 ? <p className="p-8 text-center text-gray-500 text-sm">No barista expense records found matching this timeframe filter.</p> : <div className="divide-y divide-gray-800/60">{expenseGroups.map((expenseDate) => { const dayExpenses = filteredExpenses.filter((expense) => expense.date === expenseDate); const dayTotal = dayExpenses.reduce((sum, expense) => sum + expense.amount, 0); return <div key={expenseDate}><button type="button" onClick={() => setSelectedExpenseDate(selectedExpenseDate === expenseDate ? null : expenseDate)} className="flex w-full items-center justify-between p-4 text-left hover:bg-gray-800/30"><div><p className="font-semibold text-white">{expenseDate}</p><p className="mt-1 text-xs text-gray-400">{dayExpenses.length} expense{dayExpenses.length === 1 ? '' : 's'} · submitted by barista</p></div><span className="font-bold text-red-400">-₱{dayTotal}</span></button>{selectedExpenseDate === expenseDate && <div className="space-y-2 bg-gray-950/70 p-4">{dayExpenses.map((expense) => <div key={expense.id} className="flex items-center justify-between rounded-lg bg-gray-900 p-3 text-sm"><div><p className="font-semibold text-white">{expense.title}</p><span className="text-xs text-gray-400">{expense.category}</span></div><span className="font-bold text-red-400">-₱{expense.amount}</span></div>)}</div>}</div>; })}</div>}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-white">Admin Settings</h2>
+              <p className="text-sm text-gray-400">Update your admin profile and choose the dashboard appearance.</p>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <form onSubmit={saveProfileSettings} className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-xl">
+                <div>
+                  <h3 className="font-semibold text-white">Profile and password</h3>
+                  <p className="mt-1 text-xs text-gray-400">Passwords are securely managed by Supabase Auth.</p>
+                </div>
+                {profileMessage && <p className="rounded-xl border border-emerald-800/50 bg-emerald-950/40 p-3 text-xs text-emerald-300">{profileMessage}</p>}
+                {profileError && <p className="rounded-xl border border-red-800/50 bg-red-950/40 p-3 text-xs text-red-300">{profileError}</p>}
+                <label className="block text-xs font-bold uppercase text-gray-400">Username<input required value={profileForm.username} onChange={(event) => setProfileForm({ ...profileForm, username: event.target.value })} className="mt-2 w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-3 text-sm font-normal normal-case text-white focus:border-amber-500 focus:outline-none" /></label>
+                <label className="block text-xs font-bold uppercase text-gray-400">New password<input type="password" minLength="8" value={profileForm.password} onChange={(event) => setProfileForm({ ...profileForm, password: event.target.value })} placeholder="Leave blank to keep current password" className="mt-2 w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-3 text-sm font-normal normal-case text-white placeholder-gray-600 focus:border-amber-500 focus:outline-none" /></label>
+                <label className="block text-xs font-bold uppercase text-gray-400">Confirm new password<input type="password" minLength="8" value={profileForm.confirmPassword} onChange={(event) => setProfileForm({ ...profileForm, confirmPassword: event.target.value })} className="mt-2 w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-3 text-sm font-normal normal-case text-white focus:border-amber-500 focus:outline-none" /></label>
+                <button type="submit" disabled={profileLoading} className="rounded-xl bg-amber-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{profileLoading ? 'Saving...' : 'Save profile settings'}</button>
+              </form>
+
+              <div className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-xl">
+                <div>
+                  <h3 className="font-semibold text-white">Appearance</h3>
+                  <p className="mt-1 text-xs text-gray-400">Choose the display mode that is most comfortable for your eyes.</p>
+                </div>
+                <button type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="flex w-full items-center justify-between rounded-xl border border-gray-800 bg-gray-950 p-4 text-left">
+                  <span><span className="block text-sm font-semibold text-white">{theme === 'dark' ? 'Dark mode' : 'Light mode'}</span><span className="mt-1 block text-xs text-gray-400">Saved automatically for this browser.</span></span>
+                  {theme === 'dark' ? <Moon className="text-amber-400" /> : <Sun className="text-amber-400" />}
+                </button>
+              </div>
             </div>
           </div>
         )}

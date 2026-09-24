@@ -1,5 +1,53 @@
 @import "tailwindcss";
 
+.admin-dashboard-light {
+  background-color: #f5f5f4;
+  color: #1c1917;
+}
+
+.admin-dashboard-light header,
+.admin-dashboard-light .bg-gray-900,
+.admin-dashboard-light .bg-gray-900\/60 {
+  background-color: #ffffff !important;
+  border-color: #d6d3d1 !important;
+}
+
+.admin-dashboard-light .bg-gray-950,
+.admin-dashboard-light .bg-gray-950\/40,
+.admin-dashboard-light .bg-gray-950\/60,
+.admin-dashboard-light .bg-gray-950\/70 {
+  background-color: #fafaf9 !important;
+}
+
+.admin-dashboard-light .border-gray-800,
+.admin-dashboard-light .border-gray-800\/80,
+.admin-dashboard-light .border-gray-800\/60 {
+  border-color: #d6d3d1 !important;
+}
+
+.admin-dashboard-light .text-white,
+.admin-dashboard-light .text-gray-100,
+.admin-dashboard-light .text-gray-200 {
+  color: #1c1917 !important;
+}
+
+.admin-dashboard-light .text-gray-300,
+.admin-dashboard-light .text-gray-400 {
+  color: #57534e !important;
+}
+
+.admin-dashboard-light .text-gray-500 {
+  color: #78716c !important;
+}
+
+.admin-dashboard-light input,
+.admin-dashboard-light select {
+  background-color: #ffffff !important;
+  border-color: #d6d3d1 !important;
+  color: #1c1917 !important;
+  color-scheme: light;
+}
+
 .barista-dashboard {
   transition: background-color 180ms ease, color 180ms ease;
 }
