@@ -6,7 +6,7 @@ import {
   TrendingUp, Calendar, ShoppingBag, ArrowDownRight, Tablet, Filter
 } from 'lucide-react';
 import { getDailyReports, getInventoryAdditions, getInventoryItems, getMenuItems, loadSupabaseDailyReports, loadSupabaseInventoryAdditions, loadSupabaseInventoryItems, loadSupabaseMenuItems, saveMenuItems, syncSupabaseMenuItems } from '../shared/dailyReports';
-import { createBaristaAccount, loadStaffProfiles } from '../shared/supabaseClient';
+import { createBaristaAccount, loadStaffProfiles, resetBaristaPassword } from '../shared/supabaseClient';
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -17,6 +17,9 @@ export default function Admin() {
   const [selectedSalesReport, setSelectedSalesReport] = useState(null);
   const [staffLoading, setStaffLoading] = useState(false);
   const [staffError, setStaffError] = useState('');
+  const [resetStaff, setResetStaff] = useState(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     const loadRemoteData = async () => {
@@ -148,6 +151,22 @@ export default function Admin() {
     setEditingStaffId(null);
     setStaffFormData({ name: '', username: '', email: '', password: '', role: 'Barista', shift: 'Morning', status: 'Active', posAccess: true });
     setStaffLoading(false);
+  };
+
+  const handleResetPassword = async (event) => {
+    event.preventDefault();
+    if (!resetStaff || resetPassword.length < 8) return;
+    setResetLoading(true);
+    setStaffError('');
+    try {
+      await resetBaristaPassword(resetStaff.id, resetPassword);
+      setResetStaff(null);
+      setResetPassword('');
+    } catch (error) {
+      setStaffError(error.message || 'Unable to reset password.');
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   // --- SALES FILTER LOGIC ---
@@ -577,6 +596,7 @@ export default function Admin() {
                     <div>
                       <h3 className="font-bold text-white text-lg">{st.name}</h3>
                       <p className="text-xs text-amber-400 font-semibold mt-0.5">{st.role}</p>
+                      {st.username && <p className="text-xs text-gray-400 mt-2">Username: <span className="text-gray-200 font-medium">{st.username}</span></p>}
                       <p className="text-xs text-gray-400 mt-2">Assigned Shift: <span className="text-gray-200 font-medium">{st.shift}</span></p>
                     </div>
                     <span className={`px-3 py-1 border text-xs font-bold rounded-full ${
@@ -627,6 +647,12 @@ export default function Admin() {
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-semibold transition"
                     >
                       <Edit2 className="w-3.5 h-3.5" /> Edit Details
+                    </button>
+                    <button
+                      onClick={() => { setResetStaff(st); setResetPassword(''); setStaffError(''); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/40 hover:bg-amber-900/50 text-amber-300 border border-amber-800/40 rounded-lg text-xs font-semibold transition"
+                    >
+                      Reset Password
                     </button>
                     <button
                       onClick={() => setStaff(prev => prev.filter(item => item.id !== st.id))}
@@ -931,6 +957,23 @@ export default function Admin() {
                 >
                   {staffLoading ? 'Creating account...' : 'Save Staff'}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {resetStaff && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900 border border-gray-800 rounded-3xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-white">Reset staff password</h3>
+            <p className="mt-2 text-sm text-gray-400">Create a temporary password for {resetStaff.name}. The staff member should change it after signing in.</p>
+            <form onSubmit={handleResetPassword} className="mt-5 space-y-4">
+              {staffError && <p className="rounded-xl border border-red-800/50 bg-red-950/40 p-3 text-xs text-red-300">{staffError}</p>}
+              <input type="password" required minLength="8" autoFocus value={resetPassword} onChange={(event) => setResetPassword(event.target.value)} placeholder="At least 8 characters" className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-3 text-sm text-white focus:border-amber-500 focus:outline-none" />
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setResetStaff(null)} className="flex-1 rounded-xl bg-gray-800 py-3 text-sm font-semibold text-gray-300">Cancel</button>
+                <button type="submit" disabled={resetLoading} className="flex-1 rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white disabled:opacity-50">{resetLoading ? 'Resetting...' : 'Reset password'}</button>
               </div>
             </form>
           </div>

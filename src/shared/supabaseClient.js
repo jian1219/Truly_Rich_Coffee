@@ -14,6 +14,15 @@ export async function createBaristaAccount(account) {
     return data;
 }
 
+export async function resetBaristaPassword(userId, password) {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const { data, error } = await supabase.functions.invoke('reset-barista-password', {
+        body: { userId, password },
+    });
+    if (error) throw error;
+    return data;
+}
+
 export async function loadStaffProfiles() {
     if (!supabase) return [];
     const { data, error } = await supabase.from('profiles').select('id, username, full_name, role, active, must_change_password, created_at').eq('role', 'barista').order('created_at');
