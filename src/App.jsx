@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import './App.css'
 import logo from './images/logo-trc.png';
+import { canInstallPwa, installPwa } from './pwaInstall';
 
 
 import Login from './adminSite/adminLogin';
@@ -10,6 +12,14 @@ import BaristaDashboard from './baristaSite/baristaDashboard';
 
 
 function Home() {
+  const [canInstall, setCanInstall] = useState(canInstallPwa);
+
+  useEffect(() => {
+    const updateInstallState = () => setCanInstall(canInstallPwa());
+    window.addEventListener('pwa-install-available', updateInstallState);
+    return () => window.removeEventListener('pwa-install-available', updateInstallState);
+  }, []);
+
   return (
     <main className="min-h-screen overflow-hidden bg-stone-950 px-6 py-8 font-sans text-stone-100 sm:px-10 lg:px-16">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl items-center">
@@ -53,6 +63,18 @@ function Home() {
               <p className="mt-2 text-sm leading-6 text-stone-400">Select the dashboard you need to open.</p>
             </div>
             <div className="space-y-4">
+              {canInstall && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await installPwa();
+                    setCanInstall(false);
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-500/50 bg-amber-500/10 p-4 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20"
+                >
+                  Install TRC POS on this tablet
+                </button>
+              )}
               <Link
                 to="/barista/login"
                 className="group block rounded-2xl border border-amber-600/50 bg-amber-600 p-5 transition hover:-translate-y-0.5 hover:bg-amber-500 hover:shadow-xl hover:shadow-amber-950/40"
