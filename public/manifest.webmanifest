@@ -2,7 +2,7 @@
   "name": "Truly Rich Coffee POS",
   "short_name": "TRC POS",
   "description": "Truly Rich Coffee sales, inventory, expenses, reports, and cash box.",
-  "start_url": "/barista/login",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "landscape",

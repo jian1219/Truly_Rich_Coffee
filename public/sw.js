@@ -1,9 +1,9 @@
 const CACHE_NAME = 'truly-rich-coffee-pos-v1';
 const APP_SHELL = [
   '/',
-  '/barista/login',
   '/manifest.webmanifest',
-  '/icons/truly-rich-coffee.png'
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
