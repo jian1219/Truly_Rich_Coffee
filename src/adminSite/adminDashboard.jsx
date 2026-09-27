@@ -139,7 +139,7 @@ export default function Admin() {
   });
   useEffect(() => {
     loadStaffProfiles().then((profiles) => {
-      if (profiles.length) setStaff(profiles.map((profile) => ({ id: profile.id, name: profile.full_name, username: profile.username, email: '', role: 'Barista', shift: 'Morning', status: profile.active ? 'Active' : 'Inactive', posAccess: profile.active })));
+      if (profiles.length) setStaff(profiles.map((profile) => ({ id: profile.id, name: profile.full_name, username: profile.username, email: profile.email, role: 'Barista', shift: 'Morning', status: profile.active ? 'Active' : 'Inactive', posAccess: profile.active })));
     }).catch((error) => console.error('Unable to load staff profiles.', error));
   }, []);
   const submittedSales = dailyReports.map((report) => {
@@ -717,7 +717,7 @@ export default function Admin() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-white">Staff Directory & POS Access</h2>
-                <p className="text-sm text-gray-400">Manage baristas, cashiers, shifts, and tablet checkout permissions.</p>
+                <p className="text-sm text-gray-400">View staff usernames and email addresses, manage tablet access, and reset forgotten passwords. Existing passwords cannot be viewed; use Reset Password to issue a new one.</p>
               </div>
               <button
                 onClick={() => {
@@ -739,6 +739,7 @@ export default function Admin() {
                       <h3 className="font-bold text-white text-lg">{st.name}</h3>
                       <p className="text-xs text-amber-400 font-semibold mt-0.5">{st.role}</p>
                       {st.username && <p className="text-xs text-gray-400 mt-2">Username: <span className="text-gray-200 font-medium">{st.username}</span></p>}
+                      {st.email && <p className="text-xs text-gray-400 mt-2">Email: <span className="text-gray-200 font-medium">{st.email}</span></p>}
                       <p className="text-xs text-gray-400 mt-2">Assigned Shift: <span className="text-gray-200 font-medium">{st.shift}</span></p>
                     </div>
                     <span className={`px-3 py-1 border text-xs font-bold rounded-full ${
