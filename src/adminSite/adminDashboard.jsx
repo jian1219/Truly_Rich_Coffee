@@ -292,11 +292,14 @@ export default function Admin() {
     totals[key] = (totals[key] || 0) + Number(item.cups || 0);
     return totals;
   }, {});
-  const monthlyCategoryTotals = monthlyExpenses.reduce((totals, item) => {
-    const key = item.category || 'Other';
-    totals[key] = (totals[key] || 0) + Number(item.amount || 0);
-    return totals;
-  }, {});
+  const monthlyExpenseDays = monthlyReports
+    .map((report) => ({
+      date: report.date,
+      expenses: report.expenses || [],
+      total: reportTotalExpenses(report),
+    }))
+    .filter((day) => day.expenses.length > 0)
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   const filteredSales = allSales.filter(sale => {
     if (salesFilterType === 'today') return sale.date === todayStr;
@@ -1006,15 +1009,29 @@ export default function Admin() {
                     </div>
                   </div>
                   <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
-                    <h3 className="font-bold text-white">Expenses by category</h3>
-                    <div className="mt-4 space-y-3">
-                      {Object.entries(monthlyCategoryTotals).sort(([, a], [, b]) => b - a).map(([category, amount]) => (
-                        <div key={category} className="flex items-center justify-between border-b border-gray-800/60 pb-2 text-sm">
-                          <span className="text-gray-300">{category}</span>
-                          <span className="font-semibold text-red-400">₱{amount.toFixed(2)}</span>
+                    <h3 className="font-bold text-white">Expenses by day · detailed</h3>
+                    <p className="mt-1 text-xs text-gray-400">Every expense submitted each day, with the category and daily total.</p>
+                    <div className="mt-4 max-h-[32rem] space-y-4 overflow-y-auto pr-1">
+                      {monthlyExpenseDays.map((day) => (
+                        <div key={day.date} className="rounded-xl border border-gray-800/80 bg-gray-950/40 p-4">
+                          <div className="mb-3 flex items-center justify-between gap-3 border-b border-gray-800/60 pb-2">
+                            <h4 className="text-sm font-semibold text-white">{day.date}</h4>
+                            <span className="text-sm font-bold text-red-400">Day total: ₱{day.total.toFixed(2)}</span>
+                          </div>
+                          <div className="space-y-2">
+                            {day.expenses.map((expense, index) => (
+                              <div key={`${day.date}-${expense.description}-${index}`} className="flex items-center justify-between gap-3 text-sm">
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium text-gray-200">{expense.description}</p>
+                                  <p className="mt-0.5 text-xs text-gray-500">{expense.category || 'Uncategorized'}</p>
+                                </div>
+                                <span className="shrink-0 font-semibold text-red-400">₱{Number(expense.amount || 0).toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ))}
-                      {Object.keys(monthlyCategoryTotals).length === 0 && <p className="text-sm text-gray-500">No expenses were recorded.</p>}
+                      {monthlyExpenseDays.length === 0 && <p className="text-sm text-gray-500">No expenses were recorded this month.</p>}
                     </div>
                   </div>
                 </div>
