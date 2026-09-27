@@ -9,8 +9,17 @@ import { getDailyReports, getInventoryAdditions, getInventoryItems, getMenuItems
 import { createBaristaAccount, loadStaffProfiles, resetBaristaPassword, supabase } from '../shared/supabaseClient';
 import logo from '../images/logo-trc.png';
 
-function reportTotalCups(report) {
-  return (report.sales || []).reduce((total, item) => total + Number(item.cups || 0), 0);
+function isDrinkSale(item, products) {
+  const category = item.category || products.find((product) => String(product.id) === String(item.id))?.category || '';
+  return !['add-ons', 'pastries', 'food'].includes(category.trim().toLowerCase());
+}
+
+function reportSaleCounts(report, products) {
+  return (report.sales || []).reduce((counts, item) => {
+    if (isDrinkSale(item, products)) counts.cups += Number(item.cups || 0);
+    else counts.addons += Number(item.cups || 0);
+    return counts;
+  }, { cups: 0, addons: 0 });
 }
 
 function reportTotalExpenses(report) {
@@ -134,9 +143,9 @@ export default function Admin() {
     }).catch((error) => console.error('Unable to load staff profiles.', error));
   }, []);
   const submittedSales = dailyReports.map((report) => {
-    const cups = (report.sales || []).reduce((total, item) => total + Number(item.cups || 0), 0);
+    const counts = reportSaleCounts(report, products);
     const total = (report.sales || []).reduce((sum, item) => sum + Number(item.cups || 0) * (products.find((product) => product.id === item.id)?.price || 0), 0);
-    return { id: report.date, date: report.date, items: `${cups} cups across ${(report.sales || []).filter((item) => item.cups > 0).length} menu items`, total, payment: 'Daily report', time: report.submittedAt ? new Date(report.submittedAt).toLocaleTimeString() : '-', report };
+    return { id: report.date, date: report.date, items: `${counts.cups} cups · ${counts.addons} add-ons across ${(report.sales || []).filter((item) => item.cups > 0).length} menu items`, total, payment: 'Daily report', time: report.submittedAt ? new Date(report.submittedAt).toLocaleTimeString() : '-', report };
   });
   const submittedExpenses = dailyReports.flatMap((report) => (report.expenses || []).map((item, index) => ({ id: `${report.date}-${index}`, title: item.description, category: item.category, amount: Number(item.amount || 0), date: report.date })));
   const allSales = submittedSales;
@@ -272,7 +281,11 @@ export default function Admin() {
   const monthlyExpenses = monthlyReports.flatMap((report) => report.expenses || []);
   const monthlySalesTotal = monthlySales.reduce((total, item) => total + Number(item.cups || 0) * Number(item.price || 0), 0);
   const monthlyExpenseTotal = monthlyExpenses.reduce((total, item) => total + Number(item.amount || 0), 0);
-  const monthlyCups = monthlySales.reduce((total, item) => total + Number(item.cups || 0), 0);
+  const monthlyCounts = monthlySales.reduce((counts, item) => {
+    if (isDrinkSale(item, products)) counts.cups += Number(item.cups || 0);
+    else counts.addons += Number(item.cups || 0);
+    return counts;
+  }, { cups: 0, addons: 0 });
   const monthlyNet = monthlySalesTotal - monthlyExpenseTotal;
   const monthlyMenuTotals = monthlySales.reduce((totals, item) => {
     const key = item.name || item.id;
@@ -612,12 +625,12 @@ export default function Admin() {
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
                   <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Cups sold by menu</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Sales by menu</h4>
                     <div className="space-y-2">
                       {(dailyReports[dailyReports.length - 1].sales || []).map((item) => (
                         <div key={item.id} className="flex justify-between text-sm">
                           <span className="text-gray-300">{item.name}</span>
-                          <span className="font-bold text-amber-400">{item.cups} cups</span>
+                          <span className="font-bold text-amber-400">{item.cups} {isDrinkSale(item, products) ? 'cups' : 'items'}</span>
                         </div>
                       ))}
                     </div>
@@ -688,7 +701,7 @@ export default function Admin() {
                         </td>
                         <td className="p-4 text-right font-bold text-emerald-400">₱{s.total}</td>
                       </tr>
-                      {selectedSalesReport?.date === s.date && <tr className="bg-gray-950/70"><td colSpan="5" className="p-5"><div className="grid gap-4 md:grid-cols-3"><div><h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">Menu sales</h4>{(s.report.sales || []).filter((item) => item.cups > 0).map((item) => <p key={item.id} className="text-sm text-gray-300">{item.name}: <span className="font-semibold text-white">{item.cups} cups</span></p>)}</div><div><h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-red-400">Expenses</h4>{(s.report.expenses || []).map((item, index) => <p key={`${item.description}-${index}`} className="text-sm text-gray-300">{item.description}: <span className="font-semibold text-white">₱{item.amount}</span></p>)}</div><div><h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-400">Ending inventory</h4>{(s.report.inventory || []).map((item) => <p key={item.id} className="text-sm text-gray-300">{item.name}: used {item.used ?? 0}, ending {item.stock} {item.unit}</p>)}</div></div></td></tr>}
+                      {selectedSalesReport?.date === s.date && <tr className="bg-gray-950/70"><td colSpan="5" className="p-5"><div className="grid gap-4 md:grid-cols-3"><div><h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">Menu sales</h4>{(s.report.sales || []).filter((item) => item.cups > 0).map((item) => <p key={item.id} className="text-sm text-gray-300">{item.name}: <span className="font-semibold text-white">{item.cups} {isDrinkSale(item, products) ? 'cups' : 'items'}</span></p>)}</div><div><h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-red-400">Expenses</h4>{(s.report.expenses || []).map((item, index) => <p key={`${item.description}-${index}`} className="text-sm text-gray-300">{item.description}: <span className="font-semibold text-white">₱{item.amount}</span></p>)}</div><div><h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-400">Ending inventory</h4>{(s.report.inventory || []).map((item) => <p key={item.id} className="text-sm text-gray-300">{item.name}: used {item.used ?? 0}, ending {item.stock} {item.unit}</p>)}</div></div></td></tr>}
                       </Fragment>
                     ))
                   )}
@@ -957,7 +970,7 @@ export default function Admin() {
                   <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Gross sales</p>
                     <p className="mt-2 text-2xl font-extrabold text-emerald-400">₱{monthlySalesTotal.toFixed(2)}</p>
-                    <p className="mt-1 text-xs text-gray-500">{monthlyCups} cups sold</p>
+                    <p className="mt-1 text-xs text-gray-500">{monthlyCounts.cups} cups · {monthlyCounts.addons} add-on items</p>
                   </div>
                   <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Total expenses</p>
@@ -980,12 +993,14 @@ export default function Admin() {
                   <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
                     <h3 className="font-bold text-white">Sales by menu item</h3>
                     <div className="mt-4 space-y-3">
-                      {Object.entries(monthlyMenuTotals).sort(([, a], [, b]) => b - a).map(([name, cups]) => (
+                      {Object.entries(monthlyMenuTotals).sort(([, a], [, b]) => b - a).map(([name, quantity]) => {
+                        const item = monthlySales.find((sale) => (sale.name || sale.id) === name);
+                        return (
                         <div key={name} className="flex items-center justify-between border-b border-gray-800/60 pb-2 text-sm">
                           <span className="text-gray-300">{name}</span>
-                          <span className="font-semibold text-emerald-400">{cups} cups</span>
+                          <span className="font-semibold text-emerald-400">{quantity} {isDrinkSale(item, products) ? 'cups' : 'items'}</span>
                         </div>
-                      ))}
+                      ); })}
                       {Object.keys(monthlyMenuTotals).length === 0 && <p className="text-sm text-gray-500">No sales were recorded.</p>}
                     </div>
                   </div>
@@ -1006,20 +1021,22 @@ export default function Admin() {
                 <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 shadow-xl">
                   <div className="border-b border-gray-800 bg-gray-950/40 px-5 py-4">
                     <h3 className="font-bold text-white">Daily report breakdown</h3>
-                    <p className="mt-1 text-xs text-gray-400">Sales, expenses, cups, and net result for every submitted day.</p>
+                    <p className="mt-1 text-xs text-gray-400">Sales, drink cups, add-on item counts, expenses, and net result for each submitted day.</p>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[680px] text-left text-sm">
                       <thead className="border-b border-gray-800 bg-gray-950/60 text-xs uppercase tracking-wider text-gray-400">
-                        <tr><th className="p-4">Date</th><th className="p-4 text-right">Cups</th><th className="p-4 text-right">Sales</th><th className="p-4 text-right">Expenses</th><th className="p-4 text-right">Net</th><th className="p-4">Submitted</th></tr>
+                        <tr><th className="p-4">Date</th><th className="p-4 text-right">Cups</th><th className="p-4 text-right">Add-on items</th><th className="p-4 text-right">Sales</th><th className="p-4 text-right">Expenses</th><th className="p-4 text-right">Net</th><th className="p-4">Submitted</th></tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800/60">
                         {monthlyReports.slice().sort((a, b) => b.date.localeCompare(a.date)).map((report) => {
                           const salesTotal = (report.sales || []).reduce((total, item) => total + Number(item.cups || 0) * Number(item.price || 0), 0);
                           const expenseTotal = reportTotalExpenses(report);
+                          const counts = reportSaleCounts(report, products);
                           return <tr key={report.date} className="hover:bg-gray-800/30">
                             <td className="p-4 font-semibold text-amber-400">{report.date}</td>
-                            <td className="p-4 text-right text-gray-300">{reportTotalCups(report)}</td>
+                            <td className="p-4 text-right text-gray-300">{counts.cups}</td>
+                            <td className="p-4 text-right text-gray-300">{counts.addons}</td>
                             <td className="p-4 text-right font-semibold text-emerald-400">₱{salesTotal.toFixed(2)}</td>
                             <td className="p-4 text-right font-semibold text-red-400">₱{expenseTotal.toFixed(2)}</td>
                             <td className={`p-4 text-right font-bold ${salesTotal - expenseTotal >= 0 ? 'text-white' : 'text-red-400'}`}>₱{(salesTotal - expenseTotal).toFixed(2)}</td>
