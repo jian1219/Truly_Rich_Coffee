@@ -12,6 +12,7 @@ import {
 } from '../shared/dailyReports';
 import logo from '../images/logo-trc.png';
 import { supabase } from '../shared/supabaseClient';
+import { clearAuthSession, useAuthSessionTimeout } from '../shared/authSession';
 
 const today = new Date().toISOString().slice(0, 10);
 const blankExpense = { description: '', category: 'Supplies', amount: '' };
@@ -79,6 +80,7 @@ function EmptyState({ children }) {
 
 export default function BaristaDashboard() {
     const navigate = useNavigate();
+    useAuthSessionTimeout('Barista', navigate);
     const [activeTab, setActiveTab] = useState('ending');
     const [date, setDate] = useState(today);
     const [sales, setSales] = useState(() => getDailyDraft(today)?.sales || {});
@@ -165,6 +167,21 @@ export default function BaristaDashboard() {
         setCashbox(draft?.cashbox || { openingCash: '', countedCash: '' });
         setSubmitted(Boolean(getDailyReports().find((report) => report.date === nextDate)));
         setDraftSaved(Boolean(draft));
+    };
+
+    const handleLogout = async () => {
+        clearAuthSession('Barista');
+        try {
+            if (supabase) {
+                const { error } = await supabase.auth.signOut();
+                if (error) throw error;
+            }
+        } catch (error) {
+            console.error('Unable to sign out barista from Supabase.', error);
+        } finally {
+            localStorage.removeItem('isBaristaAuthenticated');
+            navigate('/');
+        }
     };
 
     const updateNumber = (setter, id, value) => setter((current) => ({ ...current, [id]: value }));
@@ -382,7 +399,7 @@ export default function BaristaDashboard() {
                             {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
                             <span className="hidden sm:inline">{theme === 'light' ? 'Dark mode' : 'Light mode'}</span>
                         </button>
-                        <button onClick={() => navigate('/')} className="flex min-h-11 items-center gap-2 rounded-xl bg-stone-900 px-3 py-2 text-sm font-semibold text-white"><LogOut size={15} /> Exit</button>
+                        <button onClick={handleLogout} className="flex min-h-11 items-center gap-2 rounded-xl bg-stone-900 px-3 py-2 text-sm font-semibold text-white"><LogOut size={15} /> Exit</button>
                     </div>
                 </div>
             </header>

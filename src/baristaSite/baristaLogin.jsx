@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
     AlertCircle,
     ArrowRight,
@@ -9,9 +9,11 @@ import {
     User,
 } from 'lucide-react';
 import { supabase } from '../shared/supabaseClient';
+import { startAuthSession } from '../shared/authSession';
 
 const BaristaLogin = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -34,6 +36,7 @@ const BaristaLogin = () => {
                 await supabase.auth.signOut();
                 setError('This account does not have active barista access.');
             } else {
+                startAuthSession('Barista');
                 localStorage.setItem('isBaristaAuthenticated', 'true');
                 navigate('/barista/dashboard');
             }
@@ -90,6 +93,11 @@ const BaristaLogin = () => {
                         <div className="flex items-center gap-3 p-4 bg-red-950/40 border border-red-800/50 rounded-xl text-red-300 text-xs">
                             <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
                             <span>{error}</span>
+                        </div>
+                    )}
+                    {location.state?.sessionExpired && (
+                        <div className="rounded-xl border border-amber-800/50 bg-amber-950/40 p-4 text-xs text-amber-200">
+                            Your one-hour session expired. Please sign in again.
                         </div>
                     )}
 

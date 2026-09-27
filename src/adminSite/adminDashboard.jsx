@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { getDailyReports, getInventoryAdditions, getInventoryItems, getMenuItems, loadSupabaseDailyReports, loadSupabaseInventoryAdditions, loadSupabaseInventoryItems, loadSupabaseMenuItems, saveMenuItems, syncSupabaseMenuItems } from '../shared/dailyReports';
 import { createBaristaAccount, loadStaffProfiles, resetBaristaPassword, supabase } from '../shared/supabaseClient';
+import { clearAuthSession, useAuthSessionTimeout } from '../shared/authSession';
 import logo from '../images/logo-trc.png';
 
 function isDrinkSale(item, products) {
@@ -28,6 +29,7 @@ function reportTotalExpenses(report) {
 
 export default function Admin() {
   const navigate = useNavigate();
+  useAuthSessionTimeout('Admin', navigate);
   const [activeTab, setActiveTab] = useState('sales');
   const [dailyReports, setDailyReports] = useState(getDailyReports);
   const [inventoryItems, setInventoryItems] = useState(getInventoryItems);
@@ -153,7 +155,10 @@ export default function Admin() {
 
   // Logout Handler
   const handleLogout = () => {
-    supabase?.auth.signOut();
+    clearAuthSession('Admin');
+    supabase?.auth.signOut().then(({ error }) => {
+      if (error) console.error('Unable to sign out admin from Supabase.', error);
+    });
     localStorage.removeItem('isAdminAuthenticated');
     navigate('/admin/login');
   };

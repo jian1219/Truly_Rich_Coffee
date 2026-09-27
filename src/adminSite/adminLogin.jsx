@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Coffee, Lock, Mail, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { supabase } from '../shared/supabaseClient';
+import { startAuthSession } from '../shared/authSession';
 
 const AdminLogin = () => {
 
     const navigate = useNavigate();
+    const location = useLocation();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -29,6 +31,7 @@ const AdminLogin = () => {
                 await supabase.auth.signOut();
                 setError('This account does not have active admin access.');
             } else {
+            startAuthSession('Admin');
             localStorage.setItem('isAdminAuthenticated', 'true');
             navigate('/admin/dashboard');
             }
@@ -92,6 +95,11 @@ const AdminLogin = () => {
             <div className="flex items-center gap-3 p-4 bg-red-950/40 border border-red-800/50 rounded-xl text-red-300 text-xs">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
               <span>{error}</span>
+            </div>
+          )}
+          {location.state?.sessionExpired && (
+            <div className="rounded-xl border border-amber-800/50 bg-amber-950/40 p-4 text-xs text-amber-200">
+              Your one-hour session expired. Please sign in again.
             </div>
           )}
 
