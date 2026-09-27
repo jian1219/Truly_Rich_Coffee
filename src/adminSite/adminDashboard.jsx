@@ -993,7 +993,7 @@ export default function Admin() {
                   </div>
                 </div>
 
-                <div className="grid gap-6 lg:grid-cols-2">
+                <div className="print-monthly-sections grid gap-6 lg:grid-cols-2">
                   <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
                     <h3 className="font-bold text-white">Sales by menu item</h3>
                     <div className="mt-4 space-y-3">
@@ -1008,21 +1008,21 @@ export default function Admin() {
                       {Object.keys(monthlyMenuTotals).length === 0 && <p className="text-sm text-gray-500">No sales were recorded.</p>}
                     </div>
                   </div>
-                  <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
+                  <div className="print-expense-details rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-xl">
                     <h3 className="font-bold text-white">Expenses by day · detailed</h3>
                     <p className="mt-1 text-xs text-gray-400">Every expense submitted each day, with the category and daily total.</p>
-                    <div className="mt-4 max-h-[32rem] space-y-4 overflow-y-auto pr-1">
+                    <div className="print-expense-list mt-4 max-h-[32rem] space-y-4 overflow-y-auto pr-1">
                       {monthlyExpenseDays.map((day) => (
-                        <div key={day.date} className="rounded-xl border border-gray-800/80 bg-gray-950/40 p-4">
+                        <div key={day.date} className="print-expense-day rounded-xl border border-gray-800/80 bg-gray-950/40 p-4">
                           <div className="mb-3 flex items-center justify-between gap-3 border-b border-gray-800/60 pb-2">
                             <h4 className="text-sm font-semibold text-white">{day.date}</h4>
                             <span className="text-sm font-bold text-red-400">Day total: ₱{day.total.toFixed(2)}</span>
                           </div>
                           <div className="space-y-2">
                             {day.expenses.map((expense, index) => (
-                              <div key={`${day.date}-${expense.description}-${index}`} className="flex items-center justify-between gap-3 text-sm">
+                              <div key={`${day.date}-${expense.description}-${index}`} className="print-expense-line flex items-center justify-between gap-3 text-sm">
                                 <div className="min-w-0">
-                                  <p className="truncate font-medium text-gray-200">{expense.description}</p>
+                                  <p className="print-expense-description truncate font-medium text-gray-200">{expense.description}</p>
                                   <p className="mt-0.5 text-xs text-gray-500">{expense.category || 'Uncategorized'}</p>
                                 </div>
                                 <span className="shrink-0 font-semibold text-red-400">₱{Number(expense.amount || 0).toFixed(2)}</span>
@@ -1036,7 +1036,7 @@ export default function Admin() {
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 shadow-xl">
+                <div className="print-daily-breakdown overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 shadow-xl">
                   <div className="border-b border-gray-800 bg-gray-950/40 px-5 py-4">
                     <h3 className="font-bold text-white">Daily report breakdown</h3>
                     <p className="mt-1 text-xs text-gray-400">Sales, drink cups, add-on item counts, expenses, and net result for each submitted day.</p>

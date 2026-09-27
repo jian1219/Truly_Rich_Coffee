@@ -101,7 +101,8 @@
 
 @media print {
   @page {
-    margin: 14mm;
+    size: A4 portrait;
+    margin: 12mm;
   }
 
   body {
@@ -124,6 +125,74 @@
     padding: 0 !important;
     background: #ffffff !important;
     color: #111827 !important;
+    font-size: 10pt !important;
+    line-height: 1.4 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .print-report-shell .print-monthly-sections {
+    display: block !important;
+  }
+
+  .print-report-shell .print-monthly-sections > *,
+  .print-report-shell .print-daily-breakdown {
+    margin: 0 0 14pt !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .print-report-shell .print-expense-details {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  .print-report-shell .print-expense-list,
+  .print-report-shell .overflow-y-auto,
+  .print-report-shell .overflow-x-auto,
+  .print-report-shell .overflow-hidden {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .print-report-shell .print-expense-day {
+    margin-bottom: 8pt !important;
+    padding: 8pt !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 0 !important;
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  .print-report-shell .print-expense-line {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  .print-report-shell .print-expense-description {
+    overflow: visible !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  .print-report-shell table {
+    width: 100% !important;
+    min-width: 0 !important;
+    border-collapse: collapse !important;
+  }
+
+  .print-report-shell thead {
+    display: table-header-group;
+  }
+
+  .print-report-shell tr {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
   }
 
   .print-report-shell .bg-gray-900,
@@ -151,6 +220,13 @@
   .print-report-shell .text-emerald-400,
   .print-report-shell .text-red-400 {
     color: #111827 !important;
+  }
+
+  .print-report-shell .bg-emerald-50,
+  .print-report-shell .bg-rose-50,
+  .print-report-shell .bg-amber-50,
+  .print-report-shell .bg-stone-50 {
+    background: #ffffff !important;
   }
 }
 
