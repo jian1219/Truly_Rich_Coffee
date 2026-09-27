@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
     AlertCircle,
+    ArrowLeft,
     ArrowRight,
     Coffee,
     Lock,
@@ -81,6 +82,13 @@ const BaristaLogin = () => {
 
             <div className="flex items-center justify-center p-8 lg:p-16 bg-gray-950">
                 <div className="w-full max-w-md space-y-8 bg-gray-900/60 p-8 rounded-3xl border border-gray-800/80 shadow-2xl backdrop-blur-xl">
+                    <button
+                        type="button"
+                        onClick={() => navigate('/')}
+                        className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-semibold text-gray-400 transition hover:bg-gray-800 hover:text-white"
+                    >
+                        <ArrowLeft className="h-4 w-4" /> Back to workspace choices
+                    </button>
                     <div className="space-y-2 text-center lg:text-left">
                         <div className="inline-flex lg:hidden p-3 bg-amber-600/20 border border-amber-500/30 rounded-2xl mb-2">
                             <Coffee className="w-6 h-6 text-amber-500" />
