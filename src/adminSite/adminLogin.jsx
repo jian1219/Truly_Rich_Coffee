@@ -109,7 +109,7 @@ const AdminLogin = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@coffee.com"
+                  placeholder="admin@trc.com"
                   className="w-full pl-11 pr-4 py-3 bg-gray-950/60 border border-gray-800 rounded-xl text-white placeholder-gray-600 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
                 />
               </div>
@@ -135,7 +135,7 @@ const AdminLogin = () => {
                 />
               </div>
               <p className="text-[11px] text-gray-500 mt-1.5">
-                Default credentials for testing: <span className="text-amber-400 font-mono">admin@coffee.com</span> / <span className="text-amber-400 font-mono">admin123</span>
+                Use the current admin email address configured in Admin Settings.
               </p>
             </div>
 

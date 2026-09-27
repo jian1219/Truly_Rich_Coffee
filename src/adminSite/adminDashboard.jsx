@@ -30,7 +30,7 @@ export default function Admin() {
   const [resetPassword, setResetPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('adminTheme') || 'dark');
-  const [profileForm, setProfileForm] = useState({ username: '', password: '', confirmPassword: '' });
+  const [profileForm, setProfileForm] = useState({ username: '', email: '', password: '', confirmPassword: '' });
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
   const [profileLoading, setProfileLoading] = useState(false);
@@ -45,7 +45,11 @@ export default function Admin() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data: profile } = await supabase.from('profiles').select('username').eq('id', user.id).single();
-      setProfileForm((current) => ({ ...current, username: profile?.username || user.email?.split('@')[0] || '' }));
+      setProfileForm((current) => ({
+        ...current,
+        username: profile?.username || user.email?.split('@')[0] || '',
+        email: user.email || '',
+      }));
     };
     loadProfile();
   }, []);
@@ -153,6 +157,10 @@ export default function Admin() {
       setProfileError('Supabase is not configured.');
       return;
     }
+    if (!profileForm.email.trim()) {
+      setProfileError('Enter the email address you want to use to sign in.');
+      return;
+    }
     if (profileForm.password && profileForm.password !== profileForm.confirmPassword) {
       setProfileError('Passwords do not match.');
       return;
@@ -165,14 +173,20 @@ export default function Admin() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Your admin session has expired. Please log in again.');
+      const emailChanged = profileForm.email.trim().toLowerCase() !== (user.email || '').toLowerCase();
+      if (emailChanged || profileForm.password) {
+        const authUpdates = {};
+        if (emailChanged) authUpdates.email = profileForm.email.trim();
+        if (profileForm.password) authUpdates.password = profileForm.password;
+        const { error: authError } = await supabase.auth.updateUser(authUpdates);
+        if (authError) throw authError;
+      }
       const { error: profileErrorResponse } = await supabase.from('profiles').update({ username: profileForm.username.trim() }).eq('id', user.id);
       if (profileErrorResponse) throw profileErrorResponse;
-      if (profileForm.password) {
-        const { error: passwordError } = await supabase.auth.updateUser({ password: profileForm.password });
-        if (passwordError) throw passwordError;
-      }
       setProfileForm((current) => ({ ...current, password: '', confirmPassword: '' }));
-      setProfileMessage('Profile settings saved successfully.');
+      setProfileMessage(emailChanged
+        ? 'Profile saved. Supabase may require you to confirm the email change from your inbox before the new email can be used to log in.'
+        : 'Profile settings saved successfully.');
     } catch (error) {
       setProfileError(error.message || 'Unable to save profile settings.');
     } finally {
@@ -1033,11 +1047,12 @@ export default function Admin() {
               <form onSubmit={saveProfileSettings} className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-xl">
                 <div>
                   <h3 className="font-semibold text-white">Profile and password</h3>
-                  <p className="mt-1 text-xs text-gray-400">Passwords are securely managed by Supabase Auth.</p>
+                  <p className="mt-1 text-xs text-gray-400">Sign-in email and password are securely managed by Supabase Auth.</p>
                 </div>
                 {profileMessage && <p className="rounded-xl border border-emerald-800/50 bg-emerald-950/40 p-3 text-xs text-emerald-300">{profileMessage}</p>}
                 {profileError && <p className="rounded-xl border border-red-800/50 bg-red-950/40 p-3 text-xs text-red-300">{profileError}</p>}
                 <label className="block text-xs font-bold uppercase text-gray-400">Username<input required value={profileForm.username} onChange={(event) => setProfileForm({ ...profileForm, username: event.target.value })} className="mt-2 w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-3 text-sm font-normal normal-case text-white focus:border-amber-500 focus:outline-none" /></label>
+                <label className="block text-xs font-bold uppercase text-gray-400">Login email<input type="email" required value={profileForm.email} onChange={(event) => setProfileForm({ ...profileForm, email: event.target.value })} placeholder="admin@trc.com" className="mt-2 w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-3 text-sm font-normal normal-case text-white focus:border-amber-500 focus:outline-none" /><span className="mt-1 block text-xs font-normal normal-case text-gray-500">Supabase may email you a confirmation link before the new address becomes active.</span></label>
                 <label className="block text-xs font-bold uppercase text-gray-400">New password<input type="password" minLength="8" value={profileForm.password} onChange={(event) => setProfileForm({ ...profileForm, password: event.target.value })} placeholder="Leave blank to keep current password" className="mt-2 w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-3 text-sm font-normal normal-case text-white placeholder-gray-600 focus:border-amber-500 focus:outline-none" /></label>
                 <label className="block text-xs font-bold uppercase text-gray-400">Confirm new password<input type="password" minLength="8" value={profileForm.confirmPassword} onChange={(event) => setProfileForm({ ...profileForm, confirmPassword: event.target.value })} className="mt-2 w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-3 text-sm font-normal normal-case text-white focus:border-amber-500 focus:outline-none" /></label>
                 <button type="submit" disabled={profileLoading} className="rounded-xl bg-amber-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{profileLoading ? 'Saving...' : 'Save profile settings'}</button>
