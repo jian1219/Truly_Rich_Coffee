@@ -25,7 +25,9 @@ function Home() {
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl items-center">
         <div className="grid w-full items-center gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:gap-20">
           <section className="space-y-8">
-            <img src={logo} alt="Truly Rich Coffee" className="h-28 w-auto object-contain object-left sm:h-36" />
+            <div className="flex h-36 w-36 items-center justify-center rounded-full border border-amber-200/70 bg-[#fffaf0] p-3 shadow-[0_0_48px_rgba(245,158,11,0.18)] sm:h-44 sm:w-44">
+              <img src={logo} alt="Truly Rich Coffee" className="h-full w-full rounded-full object-contain" />
+            </div>
             <div className="space-y-5">
               <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-500">Welcome to the coffee house</p>
               <h1 className="max-w-2xl text-4xl font-bold leading-tight tracking-tight text-white sm:text-6xl">

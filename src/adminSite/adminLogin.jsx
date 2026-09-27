@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Coffee, Lock, Mail, ArrowRight, ArrowLeft, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Lock, Mail, ArrowRight, ArrowLeft, ShieldCheck, AlertCircle } from 'lucide-react';
 import { supabase } from '../shared/supabaseClient';
 import { startAuthSession } from '../shared/authSession';
+import logo from '../images/logo-trc.png';
 
 const AdminLogin = () => {
 
@@ -52,8 +53,8 @@ const AdminLogin = () => {
 
         {/* Top Brand Logo */}
         <div className="flex items-center space-x-3 z-10">
-          <div className="p-3 bg-amber-600/20 border border-amber-500/30 rounded-2xl backdrop-blur-md">
-            <Coffee className="w-6 h-6 text-amber-500" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-amber-200 bg-[#fffaf0] p-1.5 shadow-lg shadow-amber-950/20">
+            <img src={logo} alt="Truly Rich Coffee" className="h-full w-full rounded-full object-contain" />
           </div>
           <span className="font-bold tracking-wider text-lg uppercase bg-gradient-to-r from-amber-200 to-amber-500 bg-clip-text text-transparent">
             truly Rich Coffee 
@@ -92,8 +93,8 @@ const AdminLogin = () => {
           </button>
           
           <div className="space-y-2 text-center lg:text-left">
-            <div className="inline-flex lg:hidden p-3 bg-amber-600/20 border border-amber-500/30 rounded-2xl mb-2">
-              <Coffee className="w-6 h-6 text-amber-500" />
+            <div className="mb-2 inline-flex h-16 w-16 items-center justify-center rounded-full border border-amber-200 bg-[#fffaf0] p-1.5 shadow-lg shadow-amber-950/20 lg:hidden">
+              <img src={logo} alt="Truly Rich Coffee" className="h-full w-full rounded-full object-contain" />
             </div>
             <h2 className="text-2xl font-bold tracking-tight text-white">Welcome Back</h2>
             <p className="text-sm text-gray-400">Please sign in to access your administrative dashboard.</p>
